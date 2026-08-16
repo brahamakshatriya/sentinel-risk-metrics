@@ -1,0 +1,49 @@
+# =============================================================================
+# Render Blueprint for Sentinel (Free Tier)
+# =============================================================================
+# Deploy: Push to GitHub, then in Render Dashboard click "New Blueprint Instance"
+# Select this repo, Render will auto-detect render.yaml and create services
+
+services:
+  # -----------------------------------------------------------------------------
+  # Backend API (FastAPI)
+  # -----------------------------------------------------------------------------
+  - type: web
+    name: risk-metrics-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      # DATABASE_URL will be injected from the Postgres database below
+      # FRED_API_KEY must be set manually in Render dashboard after deploy
+      # CORS_ALLOWED_ORIGINS must be set to your Vercel frontend URL after deploy
+    # Auto-deploy on push to main branch
+    autoDeploy: true
+
+  # -----------------------------------------------------------------------------
+  # PostgreSQL Database (Free Tier - 90 days, then $7/mo)
+  # Note: Render's free Postgres expires after 90 days
+  # For truly free long-term, use Neon (neon.tech) or Supabase instead
+  # -----------------------------------------------------------------------------
+  - type: pserv
+    name: risk-metrics-db
+    plan: free
+    # PostgreSQL 15
+    ipAllowList: []  # Empty = allow all (Render internal only)
+
+# -----------------------------------------------------------------------------
+# Alternative: Use Neon PostgreSQL (truly free, no expiration)
+# -----------------------------------------------------------------------------
+# 1. Create a free Neon project at https://neon.tech
+# 2. Copy the connection string
+# 3. In Render dashboard, add DATABASE_URL env var with the Neon connection string
+# 4. Delete the pserv database above from render.yaml
+# 5. This avoids the 90-day expiration limit

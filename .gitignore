@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+/.next/
+/*.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+venv/
+.env/
+
+# Database
+*.db
+*.sqlite3
+
+# Vercel
+.vercel/
+
+# Logs
+*.log
+
+# Environment variables (especially real .env files)
+# NOTE: .env.example is kept for reference but never committed
+.env
