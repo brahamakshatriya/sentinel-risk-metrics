@@ -46,10 +46,11 @@ interface MonteCarloChartProps {
   } | null;
   isLoading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
   lastUpdated?: string | Date | null;
 }
 
-export function MonteCarloChart({ data, isLoading, error, lastUpdated }: MonteCarloChartProps) {
+export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }: MonteCarloChartProps) {
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -69,7 +70,7 @@ export function MonteCarloChart({ data, isLoading, error, lastUpdated }: MonteCa
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <button 
           className="text-sm text-primary hover:underline"
-          onClick={() => window.location.reload()}
+          onClick={() => onRetry?.()}
         >
           Retry
         </button>

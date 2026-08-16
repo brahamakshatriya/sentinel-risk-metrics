@@ -31,7 +31,7 @@ export default function PortfolioDashboardPage() {
   const { data: portfolio, isLoading: portfolioLoading, error: portfolioError } = usePortfolio(portfolioId);
   const { data: holdings, isLoading: holdingsLoading, refetch: refetchHoldings } = useHoldings(portfolioId);
   const { data: portfolioValue, isLoading: valueLoading } = usePortfolioValue(portfolioId);
-  const { data: riskMetrics, isLoading: metricsLoading } = useRiskMetrics(portfolioId, 60, 0.95);
+  const { data: riskMetrics, isLoading: metricsLoading, refetch: refetchRiskMetrics } = useRiskMetrics(portfolioId, 60, 0.95);
   
   const addHolding = useAddHolding();
   const deleteHolding = useDeleteHolding();
@@ -233,6 +233,7 @@ export default function PortfolioDashboardPage() {
                   holdings={holdingsForTable}
                   totalValue={totalValue}
                   onDelete={handleDeleteHolding}
+                  onRetry={refetchHoldings}
                   isLoading={holdingsLoading || valueLoading}
                   error={holdingsLoading || valueLoading ? undefined : (!portfolioValue && !holdingsLoading && !valueLoading ? "Failed to load portfolio value" : undefined)}
                   lastUpdated={portfolioValue?.as_of_date || null}
@@ -255,6 +256,7 @@ export default function PortfolioDashboardPage() {
                   symbols={holdingsForTable.map(h => h.symbol)}
                   isLoading={metricsLoading}
                   error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load Sentinel data" : undefined)}
+                  onRetry={refetchRiskMetrics}
                   lastUpdated={riskMetrics?.as_of_date || null}
                 />
               </CardContent>
@@ -305,6 +307,14 @@ export default function PortfolioDashboardPage() {
                       cvar_pct: parseFloat(runMonteCarlo.data.cvar_pct) * 100,
                     }}
                     isLoading={runMonteCarlo.isPending}
+                    error={runMonteCarlo.error as string | null}
+                    onRetry={() => runMonteCarlo.mutateAsync({
+                      portfolio_id: portfolioId,
+                      lookback_days: monteCarloParams.lookback_days,
+                      num_simulations: monteCarloParams.num_simulations,
+                      horizon_days: monteCarloParams.horizon_days,
+                      confidence_level: monteCarloParams.confidence_level,
+                    })}
                     lastUpdated={runMonteCarlo.data?.as_of_date || null}
                   />
                 )}
@@ -321,12 +331,12 @@ export default function PortfolioDashboardPage() {
       </div>
 
       {/* Modals */}
-      {showAddHolding && (
-        <AddHoldingForm
-          onSubmit={handleAddHolding}
-          isPending={addHolding.isPending}
-        />
-      )}
+      <AddHoldingForm
+        isOpen={showAddHolding}
+        onClose={() => setShowAddHolding(false)}
+        onSubmit={handleAddHolding}
+        isPending={addHolding.isPending}
+      />
 
       {showMonteCarlo && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">

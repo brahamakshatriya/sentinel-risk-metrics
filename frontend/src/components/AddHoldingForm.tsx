@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -14,12 +13,13 @@ interface HoldingFormData {
 }
 
 interface AddHoldingFormProps {
+  isOpen: boolean;
+  onClose: () => void;
   onSubmit: (data: HoldingFormData) => Promise<void>;
   isPending?: boolean;
 }
 
-export function AddHoldingForm({ onSubmit, isPending }: AddHoldingFormProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function AddHoldingForm({ isOpen, onClose, onSubmit, isPending }: AddHoldingFormProps) {
   const {
     register,
     handleSubmit,
@@ -33,32 +33,22 @@ export function AddHoldingForm({ onSubmit, isPending }: AddHoldingFormProps) {
     },
   });
 
-  const handleClose = () => {
-    setIsOpen(false);
-    reset();
-  };
-
-  const handleOpen = () => setIsOpen(true);
-
   return (
     <>
-      <Button variant="outline" onClick={handleOpen} disabled={isPending}>
-        + Add Holding
-      </Button>
-
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md mx-4 rounded-lg border bg-card p-6 shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Add Holding</h2>
-              <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
+              <button onClick={onClose} className="text-muted-foreground hover:text-foreground" disabled={isPending}>
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleSubmit(async (data) => {
               await onSubmit(data);
-              handleClose();
+              onClose();
+              reset();
             })} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="symbol">Symbol</Label>
@@ -118,7 +108,7 @@ export function AddHoldingForm({ onSubmit, isPending }: AddHoldingFormProps) {
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isPending}>

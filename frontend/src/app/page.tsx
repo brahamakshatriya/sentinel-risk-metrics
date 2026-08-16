@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PortfolioListPage() {
-  const { data: portfolios, isLoading, error } = usePortfolios();
+  const { data: portfolios, isLoading, error, refetch } = usePortfolios();
   const createPortfolio = useCreatePortfolio();
   const { toast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
@@ -56,7 +56,7 @@ export default function PortfolioListPage() {
         <div className="text-center">
           <p className="text-destructive mb-4">Failed to load portfolios</p>
           <p className="text-sm text-muted-foreground">{error.message}</p>
-          <Button onClick={() => window.location.reload()} className="mt-4">
+          <Button onClick={() => refetch()} className="mt-4">
             Retry
           </Button>
         </div>

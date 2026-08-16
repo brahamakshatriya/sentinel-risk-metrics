@@ -8,10 +8,11 @@ interface CorrelationHeatmapProps {
   symbols: string[];
   isLoading?: boolean;
   error?: string | null;
+  onRetry?: () => void;
   lastUpdated?: string | Date | null;
 }
 
-export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, error, lastUpdated }: CorrelationHeatmapProps) {
+export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, error, onRetry, lastUpdated }: CorrelationHeatmapProps) {
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -34,7 +35,7 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <button 
           className="text-sm text-primary hover:underline"
-          onClick={() => window.location.reload()}
+          onClick={() => onRetry?.()}
         >
           Retry
         </button>

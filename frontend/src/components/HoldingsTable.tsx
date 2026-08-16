@@ -18,12 +18,13 @@ interface HoldingsTableProps {
   }>;
   totalValue: number;
   onDelete: (symbol: string) => void;
+  onRetry?: () => void;
   isLoading?: boolean;
   error?: string | null;
   lastUpdated?: string | Date | null;
 }
 
-export function HoldingsTable({ holdings, totalValue, onDelete, isLoading, error, lastUpdated }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoading, error, lastUpdated }: HoldingsTableProps) {
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -43,7 +44,7 @@ export function HoldingsTable({ holdings, totalValue, onDelete, isLoading, error
       <div className="rounded-lg border bg-card p-6 text-center">
         <p className="text-destructive mb-2">Failed to load holdings</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+        <Button variant="outline" size="sm" onClick={() => onRetry?.()}>
           Retry
         </Button>
       </div>
