@@ -49,10 +49,9 @@ export default function PortfolioDashboardPage() {
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors },
-  } = useForm<{ symbol: string; quantity: string; avg_cost: string }>({
-    defaultValues: { symbol: '', quantity: '', avg_cost: '' },
+  } = useForm<MonteCarloFormData>({
+    defaultValues: monteCarloParams,
   });
 
   if (portfolioLoading) {
@@ -74,20 +73,10 @@ export default function PortfolioDashboardPage() {
     );
   }
 
-  const totalValue = portfolioValue?.total_value ? parseFloat(portfolioValue.total_value) : 0;
-  
-  // Convert holdings to format expected by HoldingsTable
-  const holdingsForTable = portfolioValue?.holdings?.map(h => ({
-    symbol: h.symbol,
-    quantity: h.quantity.toString(),
-    avg_cost: h.avg_cost.toString(),
-    current_price: h.current_price,
-    market_value: h.market_value,
-    cost_basis: h.cost_basis,
-    pnl: h.pnl,
-    pnl_pct: h.pnl_pct,
-    weight: totalValue > 0 ? h.market_value / totalValue : 0,
-  })) || [];
+  const totalValue = parseFloat(portfolioValue?.total_value || '0') || 0;
+
+  // Portfolio value holdings already match the shape expected by HoldingsTable
+  const holdingsForTable = portfolioValue?.holdings ?? [];
 
   const handleAddHolding = async (data: { symbol: string; quantity: string; avg_cost: string }) => {
     await addHolding.mutateAsync({
@@ -262,7 +251,7 @@ export default function PortfolioDashboardPage() {
               </CardHeader>
               <CardContent>
                 <CorrelationHeatmap
-                  correlationMatrix={riskMetrics?.correlation_matrix || null}
+                  correlationMatrix={null}
                   symbols={holdingsForTable.map(h => h.symbol)}
                   isLoading={metricsLoading}
                   error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load Sentinel data" : undefined)}
@@ -296,18 +285,26 @@ export default function PortfolioDashboardPage() {
                       var: parseFloat(runMonteCarlo.data.var),
                       cvar: parseFloat(runMonteCarlo.data.cvar),
                       mean_final_value: parseFloat(runMonteCarlo.data.mean_final_value),
-                      percentiles: runMonteCarlo.data.percentiles,
-                      return_percentiles: runMonteCarlo.data.return_percentiles,
+                      percentiles: {
+                        p5: parseFloat(runMonteCarlo.data.percentiles.p5),
+                        p25: parseFloat(runMonteCarlo.data.percentiles.p25),
+                        p50: parseFloat(runMonteCarlo.data.percentiles.p50),
+                        p75: parseFloat(runMonteCarlo.data.percentiles.p75),
+                        p95: parseFloat(runMonteCarlo.data.percentiles.p95),
+                      },
+                      return_percentiles: {
+                        p5: parseFloat(runMonteCarlo.data.return_percentiles.p5),
+                        p25: parseFloat(runMonteCarlo.data.return_percentiles.p25),
+                        p50: parseFloat(runMonteCarlo.data.return_percentiles.p50),
+                        p75: parseFloat(runMonteCarlo.data.return_percentiles.p75),
+                        p95: parseFloat(runMonteCarlo.data.return_percentiles.p95),
+                      },
                       prob_loss: parseFloat(runMonteCarlo.data.prob_loss),
                       prob_gain: parseFloat(runMonteCarlo.data.prob_gain),
-                      current_value: parseFloat(runMonteCarlo.data.current_value),
-                      var: parseFloat(runMonteCarlo.data.var),
-                      cvar: parseFloat(runMonteCarlo.data.cvar),
                       var_pct: parseFloat(runMonteCarlo.data.var_pct) * 100,
                       cvar_pct: parseFloat(runMonteCarlo.data.cvar_pct) * 100,
                     }}
                     isLoading={runMonteCarlo.isPending}
-                    error={runMonteCarlo.isPending ? undefined : (!runMonteCarlo.data && !runMonteCarlo.isPending ? "No simulation data available" : undefined)}
                     lastUpdated={runMonteCarlo.data?.as_of_date || null}
                   />
                 )}
@@ -385,7 +382,7 @@ export default function PortfolioDashboardPage() {
                     step="0.01"
                     min="0.5"
                     max="0.99"
-                    {...register('confidence_level', { required: 'Required', min: { value: 0.5 }, max: { value: 0.99 } })}
+                    {...register('confidence_level', { required: 'Required', min: { value: 0.5, message: 'Min 0.5' }, max: { value: 0.99, message: 'Max 0.99' } })}
                     defaultValue="0.95"
                     disabled={runMonteCarlo.isPending}
                   />

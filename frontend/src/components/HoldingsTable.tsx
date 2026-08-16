@@ -1,6 +1,6 @@
 'use client';
 
-import { formatCurrency, formatPercent, getRiskColor, formatRelativeTime } from '@/lib/utils';
+import { formatCurrency, formatPercent, formatNumber, getRiskColor, formatRelativeTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Holding } from '@/types/api';

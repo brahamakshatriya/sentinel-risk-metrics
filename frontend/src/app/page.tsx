@@ -125,14 +125,14 @@ export default function PortfolioListPage() {
           </div>
         )}
 
-        {portfolios && portfolios.length === 0 && (
+        {portfolios && Array.isArray(portfolios) && portfolios.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No portfolios yet</p>
             <Button onClick={() => setShowCreate(true)}>Create Your First Portfolio</Button>
           </div>
         )}
 
-        {portfolios && portfolios.length > 0 && (
+        {portfolios && Array.isArray(portfolios) && portfolios.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {portfolios.map((portfolio) => (
               <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">

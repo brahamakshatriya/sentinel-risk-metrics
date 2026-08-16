@@ -16,7 +16,7 @@ import {
   Cell,
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { formatCurrency, formatPercent, formatRelativeTime } from '@/lib/utils';
+import { formatCurrency, formatPercent, formatNumber, formatRelativeTime } from '@/lib/utils';
 
 interface MonteCarloChartProps {
   data: {
@@ -41,9 +41,6 @@ interface MonteCarloChartProps {
     };
     prob_loss: number;
     prob_gain: number;
-    current_value: number;
-    var: number;
-    cvar: number;
     var_pct: number;
     cvar_pct: number;
   } | null;
@@ -352,18 +349,25 @@ export function MonteCarloChart({ data, isLoading, error, lastUpdated }: MonteCa
 function MetricCard({
   title,
   value,
+  format = 'number',
   subtitle,
   trend,
 }: {
   title: string;
   value: number;
+  format?: 'currency' | 'percent' | 'number';
   subtitle?: string;
   trend: 'up' | 'down' | 'neutral';
 }) {
+  const formattedValue = format === 'currency'
+    ? formatCurrency(value)
+    : format === 'percent'
+      ? `${value.toFixed(2)}%`
+      : formatNumber(value);
   return (
     <div className="rounded-lg border bg-card p-4">
       <p className="text-xs text-muted-foreground">{title}</p>
-      <p className="text-2xl font-bold font-mono mt-1">{formatPercent(value)}</p>
+      <p className="text-2xl font-bold font-mono mt-1">{formattedValue}</p>
       {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
     </div>
   );

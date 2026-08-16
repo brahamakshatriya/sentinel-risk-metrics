@@ -69,6 +69,17 @@ export interface PortfolioValueRequest {
   as_of_date?: string;
 }
 
+export interface PortfolioValueHolding {
+  symbol: string;
+  quantity: number;
+  avg_cost: number;
+  current_price: number;
+  market_value: number;
+  cost_basis: number;
+  pnl: number;
+  pnl_pct: number;
+}
+
 export interface PortfolioValueResponse {
   portfolio_id: number;
   portfolio_name: string;
@@ -77,7 +88,7 @@ export interface PortfolioValueResponse {
   total_cost: string;
   total_pnl: string;
   total_pnl_pct: string;
-  holdings: Holding[];
+  holdings: PortfolioValueHolding[];
 }
 
 export interface RiskMetricsRequest {

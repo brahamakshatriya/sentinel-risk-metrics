@@ -5,10 +5,7 @@ import {
   monteCarloApi,
 } from '@/lib/api';
 import type {
-  PortfolioResponse,
-  PortfolioWithHoldings,
   PortfolioCreateRequest,
-  HoldingResponse,
   HoldingCreateRequest,
   HoldingUpdateRequest,
   MonteCarloRequest,
@@ -174,6 +171,5 @@ export function useMonteCarlo() {
 export function useRunMonteCarlo(portfolioId: number | null) {
   return useMutation({
     mutationFn: (data: MonteCarloRequest) => monteCarloApi.run({ ...data, portfolio_id: portfolioId! }),
-    enabled: !!portfolioId,
   });
 }
