@@ -10,3 +10,4 @@ python-dotenv>=1.0.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 fredapi>=0.5.2
+scipy>=1.11.0
