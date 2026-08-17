@@ -84,6 +84,10 @@ export function useAddHolding() {
       queryClient.invalidateQueries({ queryKey: ['holdings', portfolioId] });
       queryClient.invalidateQueries({ queryKey: ['portfolio', portfolioId] });
       queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+      // Force immediate refetch to ensure UI updates (not just marking stale)
+      queryClient.refetchQueries({ queryKey: ['holdings', portfolioId] });
+      queryClient.refetchQueries({ queryKey: ['portfolio', portfolioId] });
+      queryClient.refetchQueries({ queryKey: ['portfolios'] });
     },
   });
 }
