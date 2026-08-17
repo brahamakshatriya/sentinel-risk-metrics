@@ -75,8 +75,24 @@ export default function PortfolioDashboardPage() {
 
   const totalValue = parseFloat(portfolioValue?.total_value || '0') || 0;
 
-  // Portfolio value holdings already match the shape expected by HoldingsTable
-  const holdingsForTable = portfolioValue?.holdings ?? [];
+  // Single source of truth for the holdings list: useHoldings (the portfolio's actual holdings).
+  // Enrich with market data from portfolioValue by symbol — holdings without ingested
+  // price data still appear (with $0 market values) instead of being silently dropped.
+  const marketDataBySymbol = new Map((portfolioValue?.holdings ?? []).map((h) => [h.symbol, h]));
+
+  const holdingsForTable = (holdings ?? []).map((h) => {
+    const market = marketDataBySymbol.get(h.symbol);
+    return {
+      symbol: h.symbol,
+      quantity: parseFloat(h.quantity) || 0,
+      avg_cost: parseFloat(h.avg_cost) || 0,
+      current_price: market?.current_price ?? 0,
+      market_value: market?.market_value ?? 0,
+      cost_basis: market?.cost_basis ?? 0,
+      pnl: market?.pnl ?? 0,
+      pnl_pct: market?.pnl_pct ?? 0,
+    };
+  });
 
   const handleAddHolding = async (data: { symbol: string; quantity: string; avg_cost: string }) => {
     await addHolding.mutateAsync({
@@ -222,7 +238,7 @@ export default function PortfolioDashboardPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Holdings</CardTitle>
-                  <CardDescription>{holdings?.length || 0} positions</CardDescription>
+                  <CardDescription>{holdingsForTable.length} positions</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setShowAddHolding(true)} disabled={addHolding.isPending}>
                   + Add
@@ -235,7 +251,7 @@ export default function PortfolioDashboardPage() {
                   onDelete={handleDeleteHolding}
                   onRetry={refetchHoldings}
                   isLoading={holdingsLoading || valueLoading}
-                  error={holdingsLoading || valueLoading ? undefined : (!portfolioValue && !holdingsLoading && !valueLoading ? "Failed to load portfolio value" : undefined)}
+                  error={holdingsLoading || valueLoading ? undefined : (!holdings && !holdingsLoading ? "Failed to load holdings" : undefined)}
                   lastUpdated={portfolioValue?.as_of_date || null}
                 />
               </CardContent>
