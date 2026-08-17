@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatPercent, formatDate, formatNumber, cn } from '@/lib/utils';
-import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch } from '@/hooks/useApi';
+import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch, useRiskScore, useScenario } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -14,6 +14,10 @@ import { HoldingsTable } from '@/components/HoldingsTable';
 import { CorrelationHeatmap } from '@/components/CorrelationHeatmap';
 import { MonteCarloChart } from '@/components/MonteCarloChart';
 import { AddHoldingForm } from '@/components/AddHoldingForm';
+import { RiskScore } from '@/components/RiskScore';
+import { RiskMatrix } from '@/components/RiskMatrix';
+import { ScenarioLab } from '@/components/ScenarioLab';
+import { MonteCarloControls } from '@/components/MonteCarloControls';
 import { useForm } from 'react-hook-form';
 
 interface MonteCarloFormData {
@@ -32,6 +36,8 @@ export default function PortfolioDashboardPage() {
   const { data: holdings, isLoading: holdingsLoading, refetch: refetchHoldings } = useHoldings(portfolioId);
   const { data: portfolioValue, isLoading: valueLoading } = usePortfolioValue(portfolioId);
   const { data: riskMetrics, isLoading: metricsLoading, refetch: refetchRiskMetrics } = useRiskMetrics(portfolioId, 60, 0.95);
+  const { data: riskScore } = useRiskScore(portfolioId, 252, 0.95);
+  const scenario = useScenario();
   
   const addHolding = useAddHolding();
   const deleteHolding = useDeleteHolding();
@@ -94,6 +100,14 @@ export default function PortfolioDashboardPage() {
       pnl_pct: market?.pnl_pct ?? 0,
     };
   });
+
+  // Build risk matrix data from risk metrics
+  const riskMatrixData = riskMetrics?.holdings_var_contribution?.map((h) => ({
+    symbol: h.symbol,
+    volatility: h.marginal_var || 0, // Using marginal_var as proxy for volatility contribution
+    component_var: h.var_contribution || 0,
+    weight: h.weight || 0,
+  })) || [];
 
   const handleAddHolding = async (data: { symbol: string; quantity: string; avg_cost: string }) => {
     await addHolding.mutateAsync({
@@ -231,6 +245,60 @@ export default function PortfolioDashboardPage() {
             />
           </div>
         )}
+
+        {/* Risk Score */}
+        {riskScore && (
+          <div className="mb-8">
+            <RiskScore
+              score={riskScore.risk_score}
+              label={riskScore.risk_label}
+              varComponent={riskScore.var_component}
+              sharpeComponent={riskScore.sharpe_component}
+              correlationComponent={riskScore.correlation_component}
+            />
+          </div>
+        )}
+
+        {/* Risk Matrix + Scenario Lab */}
+        <div className="grid gap-6 lg:grid-cols-2 mb-8">
+          <div>
+            <RiskMatrix
+              data={riskMatrixData}
+              isLoading={metricsLoading}
+              error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load risk matrix" : undefined)}
+              onRetry={refetchRiskMetrics}
+            />
+          </div>
+          <div>
+            <ScenarioLab
+              portfolioId={portfolioId}
+              portfolioName={portfolio.name}
+              currentValue={totalValue}
+              currentVar95={parseFloat(riskMetrics?.var_95 || '0')}
+              currentVolatility={parseFloat(riskMetrics?.portfolio_volatility || '0')}
+            />
+          </div>
+        </div>
+
+        {/* Monte Carlo Controls */}
+        <div className="mb-8">
+          <MonteCarloControls
+            portfolioId={portfolioId}
+            currentValue={totalValue}
+            currentVar95={parseFloat(riskMetrics?.var_95 || '0')}
+            onRun={async (params) => {
+              await runMonteCarlo.mutateAsync({
+                portfolio_id: portfolioId,
+                lookback_days: params.lookback_days,
+                num_simulations: params.num_simulations,
+                horizon_days: params.horizon_days,
+                confidence_level: params.confidence_level,
+              });
+            }}
+            isRunning={runMonteCarlo.isPending}
+            defaultParams={monteCarloParams}
+          />
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-2 lg:grid-cols-[1fr_1.5fr]">
           {/* Holdings Section */}

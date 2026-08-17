@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Union, Dict, List, Optional
+from typing import Union, Dict, List, Optional, Tuple
 
 from .returns import calculate_daily_returns, calculate_portfolio_returns
 from .var import historical_var, parametric_var, expected_shortfall
@@ -221,3 +221,46 @@ def stress_test_portfolio(
         results[scenario_name] = port_shock
     
     return results
+
+
+def apply_market_shock(
+    returns_df: pd.DataFrame,
+    weights: np.ndarray,
+    market_drop_pct: float,
+    vol_spike_pct: float
+) -> Tuple[float, float]:
+    """
+    Apply a market shock scenario and return shocked VaR and volatility.
+    
+    This is an illustrative stress test that applies:
+    - A uniform market drop to all asset returns
+    - A volatility multiplier to all asset volatilities
+    
+    Args:
+        returns_df: Historical returns DataFrame
+        weights: Portfolio weights
+        market_drop_pct: Market drop percentage (e.g., -0.20 for 20% drop)
+        vol_spike_pct: Volatility spike percentage (e.g., 0.50 for 50% increase)
+        
+    Returns:
+        Tuple of (shocked_var_95, shocked_volatility)
+    """
+    # Apply market drop to all returns (shift mean)
+    shocked_returns = returns_df + market_drop_pct / 252  # Daily adjustment
+    
+    # Apply volatility spike (scale deviations from mean)
+    mean_returns = returns_df.mean()
+    for col in returns_df.columns:
+        shocked_returns[col] = mean_returns[col] + (returns_df[col] - mean_returns[col]) * (1 + vol_spike_pct)
+    
+    # Recalculate portfolio returns with shocked data
+    portfolio_returns = calculate_portfolio_returns(shocked_returns, weights)
+    
+    # Calculate shocked metrics
+    from .volatility import annualized_volatility
+    from .var import historical_var
+    
+    shocked_vol = annualized_volatility(portfolio_returns)
+    shocked_var = historical_var(portfolio_returns, 0.95)
+    
+    return float(shocked_var), float(shocked_vol)

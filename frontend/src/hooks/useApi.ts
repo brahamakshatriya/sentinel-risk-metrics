@@ -3,6 +3,8 @@ import {
   portfolioApi,
   ingestApi,
   monteCarloApi,
+  scenarioApi,
+  healthApi,
 } from '@/lib/api';
 import type {
   PortfolioCreateRequest,
@@ -14,6 +16,10 @@ import type {
   PriceIngestResponse,
   PortfolioValueResponse,
   RiskMetricsResponse,
+  ScenarioRequest,
+  ScenarioResponse,
+  RiskScoreResponse,
+  HealthResponse,
 } from '@/types/api';
 
 // Portfolio hooks
@@ -185,5 +191,37 @@ export function useMonteCarlo() {
 export function useRunMonteCarlo(portfolioId: number | null) {
   return useMutation({
     mutationFn: (data: MonteCarloRequest) => monteCarloApi.run({ ...data, portfolio_id: portfolioId! }),
+  });
+}
+
+// Risk Score hook
+export function useRiskScore(portfolioId: number | null, lookbackDays = 252, confidenceLevel = 0.95) {
+  return useQuery({
+    queryKey: ['riskScore', portfolioId, lookbackDays, confidenceLevel],
+    queryFn: () => scenarioApi.riskScore(portfolioId!, lookbackDays, confidenceLevel),
+    enabled: !!portfolioId,
+  });
+}
+
+// Scenario hook
+export function useScenario() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: scenarioApi.run,
+    onSuccess: () => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['riskMetrics'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolioValue'] });
+    },
+  });
+}
+
+// Health check hook for status bar
+export function useHealth() {
+  return useQuery({
+    queryKey: ['health'],
+    queryFn: healthApi.check,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3,
   });
 }

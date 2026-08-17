@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, date
 
 from app.db.database import get_db
 from app.models import Portfolio, Holding
 from app.schemas import (
     PortfolioCreate, PortfolioResponse, PortfolioWithHoldings,
     HoldingCreate, HoldingUpdate, HoldingResponse,
-    MonteCarloRequest, MonteCarloResponse
+    MonteCarloRequest, MonteCarloResponse,
+    ScenarioRequest, ScenarioResponse, RiskScoreResponse
 )
 from app.services.risk_calculator import get_risk_calculator
 
@@ -184,4 +185,85 @@ def run_monte_carlo(portfolio_id: int, request: MonteCarloRequest, db: Session =
         prob_loss=Decimal(str(result["prob_loss"])),
         prob_gain=Decimal(str(result["prob_gain"])),
         simulated_paths_sample=result["simulated_paths_sample"]
+    )
+
+
+@router.post("/{portfolio_id}/scenario", response_model=ScenarioResponse)
+def run_scenario(portfolio_id: int, request: ScenarioRequest, db: Session = Depends(get_db)):
+    """Run a market shock scenario analysis for a portfolio."""
+    # Validate portfolio exists
+    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    # Override portfolio_id from path
+    request.portfolio_id = portfolio_id
+    
+    calculator = get_risk_calculator(db)
+    result = calculator.run_scenario_analysis(
+        portfolio_id=request.portfolio_id,
+        market_drop_pct=request.market_drop_pct,
+        vol_spike_pct=request.vol_spike_pct,
+        lookback_days=request.lookback_days,
+        confidence_level=request.confidence_level
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return ScenarioResponse(
+        portfolio_id=result["portfolio_id"],
+        portfolio_name=result["portfolio_name"],
+        as_of_date=result["as_of_date"],
+        market_drop_pct=result["market_drop_pct"],
+        vol_spike_pct=result["vol_spike_pct"],
+        current_value=Decimal(str(result["current_value"])),
+        shocked_value=Decimal(str(result["shocked_value"])),
+        value_change=Decimal(str(result["value_change"])),
+        value_change_pct=Decimal(str(result["value_change_pct"])),
+        original_var_95=Decimal(str(result["original_var_95"])),
+        shocked_var_95=Decimal(str(result["shocked_var_95"])),
+        var_change_pct=Decimal(str(result["var_change_pct"])),
+        original_volatility=Decimal(str(result["original_volatility"])),
+        shocked_volatility=Decimal(str(result["shocked_volatility"])),
+    )
+
+
+@router.get("/{portfolio_id}/risk-score", response_model=RiskScoreResponse)
+def get_risk_score(
+    portfolio_id: int,
+    lookback_days: int = Query(default=252, ge=30, le=2520),
+    confidence_level: float = Query(default=0.95, gt=0, lt=1),
+    db: Session = Depends(get_db)
+):
+    """Get composite risk score for a portfolio."""
+    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    calculator = get_risk_calculator(db)
+    result = calculator.calculate_risk_score(
+        portfolio_id=portfolio_id,
+        lookback_days=lookback_days,
+        confidence_level=confidence_level
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return RiskScoreResponse(
+        portfolio_id=result["portfolio_id"],
+        portfolio_name=portfolio.name,
+        as_of_date=date.today(),  # Risk score doesn't have as_of in result
+        risk_score=result["risk_score"],
+        risk_label=result["risk_label"],
+        var_component=result["var_component"],
+        sharpe_component=result["sharpe_component"],
+        correlation_component=result["correlation_component"],
     )

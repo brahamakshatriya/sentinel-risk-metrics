@@ -164,3 +164,39 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     version: str
+
+
+class ScenarioRequest(BaseModel):
+    portfolio_id: int
+    market_drop_pct: float = Field(..., ge=-50, le=0, description="Market drop percentage (e.g., -20 for 20% drop)")
+    vol_spike_pct: float = Field(..., ge=0, le=200, description="Volatility spike percentage (e.g., 50 for 50% increase)")
+    lookback_days: int = Field(default=252, ge=30, le=2520)
+    confidence_level: float = Field(default=0.95, gt=0, lt=1)
+
+
+class ScenarioResponse(BaseModel):
+    portfolio_id: int
+    portfolio_name: str
+    as_of_date: date
+    market_drop_pct: float
+    vol_spike_pct: float
+    current_value: Decimal
+    shocked_value: Decimal
+    value_change: Decimal
+    value_change_pct: Decimal
+    original_var_95: Decimal
+    shocked_var_95: Decimal
+    var_change_pct: Decimal
+    original_volatility: Decimal
+    shocked_volatility: Decimal
+
+
+class RiskScoreResponse(BaseModel):
+    portfolio_id: int
+    portfolio_name: str
+    as_of_date: date
+    risk_score: int  # 0-100
+    risk_label: str  # e.g., "Low Risk", "Moderate Risk", "High Risk"
+    var_component: float  # 0-1 normalized VaR contribution
+    sharpe_component: float  # 0-1 normalized inverse Sharpe contribution
+    correlation_component: float  # 0-1 normalized average correlation contribution

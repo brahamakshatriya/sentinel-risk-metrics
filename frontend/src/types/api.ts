@@ -165,6 +165,49 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface ScenarioRequest {
+  portfolio_id: number;
+  market_drop_pct: number;
+  vol_spike_pct: number;
+  lookback_days?: number;
+  confidence_level?: number;
+}
+
+export interface ScenarioResponse {
+  portfolio_id: number;
+  portfolio_name: string;
+  as_of_date: string;
+  market_drop_pct: number;
+  vol_spike_pct: number;
+  current_value: number;
+  shocked_value: number;
+  value_change: number;
+  value_change_pct: number;
+  original_var_95: number;
+  shocked_var_95: number;
+  var_change_pct: number;
+  original_volatility: number;
+  shocked_volatility: number;
+}
+
+export interface RiskScoreResponse {
+  portfolio_id: number;
+  portfolio_name: string;
+  as_of_date: string;
+  risk_score: number;
+  risk_label: string;
+  var_component: number;
+  sharpe_component: number;
+  correlation_component: number;
+}
+
+export interface HoldingRiskPoint {
+  symbol: string;
+  volatility: number;
+  component_var: number;
+  weight: number;
+}
+
 export interface ApiError {
   detail: string | Array<{
     type: string;

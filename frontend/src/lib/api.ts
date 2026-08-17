@@ -12,6 +12,10 @@ import type {
   PortfolioCreateRequest,
   HoldingCreateRequest,
   HoldingUpdateRequest,
+  ScenarioRequest,
+  ScenarioResponse,
+  RiskScoreResponse,
+  HealthResponse,
   ApiError,
 } from '@/types/api';
 
@@ -104,9 +108,19 @@ export const monteCarloApi = {
     unwrap(api.post<MonteCarloResponse>(`/api/v1/portfolios/${data.portfolio_id}/monte-carlo`, data)),
 };
 
+// Scenario
+export const scenarioApi = {
+  run: (data: ScenarioRequest) =>
+    unwrap(api.post<ScenarioResponse>(`/api/v1/portfolios/${data.portfolio_id}/scenario`, data)),
+  riskScore: (portfolioId: number, lookbackDays = 252, confidenceLevel = 0.95) =>
+    unwrap(api.get<RiskScoreResponse>(`/api/v1/portfolios/${portfolioId}/risk-score`, {
+      params: { lookback_days: lookbackDays, confidence_level: confidenceLevel },
+    })),
+};
+
 // Health
 export const healthApi = {
-  check: () => unwrap(api.get<{ status: string; database: string; version: string }>('/health')),
+  check: () => unwrap(api.get<HealthResponse>('/health')),
 };
 
 export default api;

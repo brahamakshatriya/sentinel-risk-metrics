@@ -2,6 +2,8 @@ import { type Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './components/Providers';
+import { StatusBar } from '@/components/StatusBar';
+import { CommandPalette } from '@/components/CommandPalette';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -18,7 +20,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased dark bg-background text-foreground`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <CommandPalette />
+          <StatusBar position="bottom" />
+        </Providers>
       </body>
     </html>
   );
