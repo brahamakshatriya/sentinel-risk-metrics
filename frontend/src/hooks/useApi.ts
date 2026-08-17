@@ -119,16 +119,26 @@ export function useDeleteHolding() {
 }
 
 // Ingestion hooks
-export function useBatchIngest() {
+export function useIngestBatch() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ingestApi.batch,
+    mutationFn: ({
+      symbols,
+      start_date,
+      end_date,
+    }: {
+      symbols: string[];
+      start_date: string;
+      end_date: string;
+    }) => ingestApi.batch({ symbols, start_date, end_date }),
     onSuccess: (_, variables) => {
-      // variables is PriceIngestRequest which has symbols array
       variables.symbols.forEach((symbol: string) => {
         queryClient.invalidateQueries({ queryKey: ['holdings', symbol] });
       });
+      queryClient.invalidateQueries({ queryKey: ['portfolioValue'] });
+      queryClient.invalidateQueries({ queryKey: ['riskMetrics'] });
       queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+      queryClient.refetchQueries({ queryKey: ['portfolios'] });
     },
   });
 }

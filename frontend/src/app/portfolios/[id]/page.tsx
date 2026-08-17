@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatPercent, formatDate, formatNumber, cn } from '@/lib/utils';
-import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding } from '@/hooks/useApi';
+import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -36,6 +36,7 @@ export default function PortfolioDashboardPage() {
   const addHolding = useAddHolding();
   const deleteHolding = useDeleteHolding();
   const runMonteCarlo = useMonteCarlo();
+  const ingestBatch = useIngestBatch();
 
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [showMonteCarlo, setShowMonteCarlo] = useState(false);
@@ -235,15 +236,31 @@ export default function PortfolioDashboardPage() {
           {/* Holdings Section */}
           <div className="lg:col-span-1">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Holdings</CardTitle>
-                  <CardDescription>{holdingsForTable.length} positions</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setShowAddHolding(true)} disabled={addHolding.isPending}>
-                  + Add
-                </Button>
-              </CardHeader>
+<CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Holdings</CardTitle>
+                    <CardDescription>{holdingsForTable.length} positions</CardDescription>
+                  </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        const symbols = holdingsForTable.map((h) => h.symbol);
+                        const today = new Date();
+                        const twoYearsAgo = new Date();
+                        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+                        await ingestBatch.mutateAsync({
+                          symbols,
+                          start_date: twoYearsAgo.toISOString().split('T')[0],
+                          end_date: today.toISOString().split('T')[0],
+                        });
+                      }}
+                      disabled={ingestBatch.isPending}
+                    >
+                      {ingestBatch.isPending ? 'Fetching...' : 'Fetch Price Data'}
+                    </Button>
+                  </div>
+                </CardHeader>
               <CardContent>
                 <HoldingsTable
                   holdings={holdingsForTable}
