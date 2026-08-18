@@ -17,14 +17,15 @@ interface HoldingsTableProps {
     pnl_pct: number;
   }>;
   totalValue: number;
-  onDelete: (symbol: string) => void;
+  onDelete?: (symbol: string) => void;
   onRetry?: () => void;
   isLoading?: boolean;
   error?: string | null;
   lastUpdated?: string | Date | null;
+  readOnly?: boolean;
 }
 
-export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoading, error, lastUpdated }: HoldingsTableProps) {
+export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoading, error, lastUpdated, readOnly = false }: HoldingsTableProps) {
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -74,7 +75,7 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
               <th className="p-4 text-right">Market Value</th>
               <th className="p-4 text-right">P&L</th>
               <th className="p-4 text-right">P&L %</th>
-              <th className="p-4"></th>
+              {!readOnly && <th className="p-4"></th>}
             </tr>
           </thead>
           <tbody>
@@ -99,16 +100,18 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
                   </span>
                 </td>
                 <td className="p-4 text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete(holding.symbol)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </Button>
+                  {!readOnly && onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDelete(holding.symbol)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </Button>
+                  )}
                 </td>
               </tr>
             ))}

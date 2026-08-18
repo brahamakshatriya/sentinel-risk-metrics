@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatPercent, formatDate, formatNumber, cn } from '@/lib/utils';
-import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch, useRiskScore, useScenario } from '@/hooks/useApi';
+import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch, useRiskScore, useScenario, useShares } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -18,7 +18,9 @@ import { RiskScore } from '@/components/RiskScore';
 import { RiskMatrix } from '@/components/RiskMatrix';
 import { ScenarioLab } from '@/components/ScenarioLab';
 import { MonteCarloControls } from '@/components/MonteCarloControls';
+import { ShareModal } from '@/components/ShareModal';
 import { useForm } from 'react-hook-form';
+import type { Portfolio, PermissionLevel } from '@/types/api';
 
 interface MonteCarloFormData {
   lookback_days: number;
@@ -44,6 +46,10 @@ export default function PortfolioDashboardPage() {
   const runMonteCarlo = useMonteCarlo();
   const ingestBatch = useIngestBatch();
 
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const { data: shares } = useShares(portfolioId);
+
   const [showAddHolding, setShowAddHolding] = useState(false);
   const [showMonteCarlo, setShowMonteCarlo] = useState(false);
   const [monteCarloParams, setMonteCarloParams] = useState<MonteCarloFormData>({
@@ -61,6 +67,12 @@ export default function PortfolioDashboardPage() {
     defaultValues: monteCarloParams,
   });
 
+  // Check permissions
+  const isOwner = portfolio?.is_owner === true;
+  const userPermission: PermissionLevel | undefined = portfolio?.permission;
+  const canEdit = isOwner || userPermission === 'edit';
+  const canView = isOwner || userPermission === 'view' || userPermission === 'edit';
+
   if (portfolioLoading) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center">
@@ -74,6 +86,19 @@ export default function PortfolioDashboardPage() {
       <div className="min-h-screen p-8 flex items-center justify-center">
         <div className="text-center">
           <p className="text-destructive mb-4">Portfolio not found</p>
+          <Button onClick={() => router.push('/')}>Back to Portfolios</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has any access (should not happen due to middleware, but safety)
+  if (!canView) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">Access Denied</p>
+          <p className="text-sm text-muted-foreground">You don't have permission to view this portfolio.</p>
           <Button onClick={() => router.push('/')}>Back to Portfolios</Button>
         </div>
       </div>
@@ -137,29 +162,38 @@ export default function PortfolioDashboardPage() {
     });
   };
 
-  if (portfolioLoading) {
-    return (
-      <div className="min-h-screen p-8 flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading portfolio...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{portfolio.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{portfolio.name}</h1>
+              {!isOwner && (
+                <Badge variant={userPermission === 'edit' ? 'default' : 'outline'}>
+                  {userPermission === 'edit' ? 'Can edit' : 'View only'}
+                </Badge>
+              )}
+              {portfolio.owner_email && !isOwner && (
+                <span className="text-sm text-muted-foreground">Shared by {portfolio.owner_email}</span>
+              )}
+            </div>
             <p className="text-muted-foreground mt-1">
               Portfolio ID: {portfolio.id} • Created {formatDate(portfolio.created_at)}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowAddHolding(true)} disabled={addHolding.isPending}>
-              + Add Holding
-            </Button>
+            {isOwner && (
+              <Button variant="outline" onClick={() => setShowShareModal(true)}>
+                Share
+              </Button>
+            )}
+            {canEdit && (
+              <Button variant="outline" onClick={() => setShowAddHolding(true)} disabled={addHolding.isPending}>
+                + Add Holding
+              </Button>
+            )}
             <Button onClick={() => setShowMonteCarlo(true)} disabled={runMonteCarlo.isPending}>
               Run Monte Carlo
             </Button>
@@ -300,44 +334,47 @@ export default function PortfolioDashboardPage() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 lg:grid-cols-[1fr_1.5fr]">
+<div className="grid gap-6 lg:grid-cols-2 lg:grid-cols-[1fr_1.5fr]">
           {/* Holdings Section */}
           <div className="lg:col-span-1">
             <Card>
 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
                     <CardTitle>Holdings</CardTitle>
-                    <CardDescription>{holdingsForTable.length} positions</CardDescription>
+                    <CardDescription>{holdingsForTable.length} positions {canEdit ? null : <Badge variant="outline" className="ml-2">View only</Badge>}</CardDescription>
                   </div>
                   <div>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        const symbols = holdingsForTable.map((h) => h.symbol);
-                        const today = new Date();
-                        const twoYearsAgo = new Date();
-                        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-                        await ingestBatch.mutateAsync({
-                          symbols,
-                          start_date: twoYearsAgo.toISOString().split('T')[0],
-                          end_date: today.toISOString().split('T')[0],
-                        });
-                      }}
-                      disabled={ingestBatch.isPending}
-                    >
-                      {ingestBatch.isPending ? 'Fetching...' : 'Fetch Price Data'}
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          const symbols = holdingsForTable.map((h) => h.symbol);
+                          const today = new Date();
+                          const twoYearsAgo = new Date();
+                          twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+                          await ingestBatch.mutateAsync({
+                            symbols,
+                            start_date: twoYearsAgo.toISOString().split('T')[0],
+                            end_date: today.toISOString().split('T')[0],
+                          });
+                        }}
+                        disabled={ingestBatch.isPending}
+                      >
+                        {ingestBatch.isPending ? 'Fetching...' : 'Fetch Price Data'}
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
               <CardContent>
                 <HoldingsTable
                   holdings={holdingsForTable}
                   totalValue={totalValue}
-                  onDelete={handleDeleteHolding}
+                  onDelete={canEdit ? handleDeleteHolding : undefined}
                   onRetry={refetchHoldings}
                   isLoading={holdingsLoading || valueLoading}
                   error={holdingsLoading || valueLoading ? undefined : (!holdings && !holdingsLoading ? "Failed to load holdings" : undefined)}
                   lastUpdated={portfolioValue?.as_of_date || null}
+                  readOnly={!canEdit}
                 />
               </CardContent>
             </Card>
@@ -512,6 +549,15 @@ export default function PortfolioDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Share Modal */}
+      <ShareModal
+        portfolioId={portfolioId}
+        portfolioName={portfolio.name}
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        isOwner={isOwner}
+      />
     </div>
   );
 }

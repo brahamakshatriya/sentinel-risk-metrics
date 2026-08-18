@@ -3,6 +3,12 @@ from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel, Field, validator
 from typing import Union
+from enum import Enum
+
+
+class PermissionLevel(str, Enum):
+    view = "view"
+    edit = "edit"
 
 
 class PortfolioCreate(BaseModel):
@@ -200,3 +206,37 @@ class RiskScoreResponse(BaseModel):
     var_component: float  # 0-1 normalized VaR contribution
     sharpe_component: float  # 0-1 normalized inverse Sharpe contribution
     correlation_component: float  # 0-1 normalized average correlation contribution
+
+
+class UserResponse(BaseModel):
+    id: int
+    clerk_user_id: str
+    email: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PortfolioShareCreate(BaseModel):
+    email: str = Field(..., min_length=1, max_length=255)
+    permission: PermissionLevel
+
+
+class PortfolioShareResponse(BaseModel):
+    id: int
+    portfolio_id: int
+    shared_with_user_id: int
+    shared_with_email: str
+    permission: PermissionLevel
+    created_at: datetime
+    created_by_user_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class PortfolioListResponse(PortfolioResponse):
+    is_owner: bool
+    permission: Optional[PermissionLevel] = None
+    owner_email: Optional[str] = None

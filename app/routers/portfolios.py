@@ -1,25 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, date
 
 from app.db.database import get_db
-from app.models import Portfolio, Holding
+from app.models import Portfolio, Holding, User, PortfolioShare, PermissionLevel
 from app.schemas import (
     PortfolioCreate, PortfolioResponse, PortfolioWithHoldings,
     HoldingCreate, HoldingUpdate, HoldingResponse,
     MonteCarloRequest, MonteCarloResponse,
-    ScenarioRequest, ScenarioResponse, RiskScoreResponse
+    ScenarioRequest, ScenarioResponse, RiskScoreResponse,
+    PortfolioShareCreate, PortfolioShareResponse, PortfolioListResponse, UserResponse
 )
 from app.services.risk_calculator import get_risk_calculator
+from app.auth import get_current_user
+from app.authorization import (
+    require_portfolio_view, require_portfolio_edit, require_portfolio_owner,
+    get_portfolio_view, get_portfolio_edit, get_portfolio_owner,
+    get_portfolio_access_level, AccessLevel
+)
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
 
 
 @router.post("/", response_model=PortfolioResponse, status_code=status.HTTP_201_CREATED)
-def create_portfolio(portfolio: PortfolioCreate, db: Session = Depends(get_db)):
-    p = Portfolio(name=portfolio.name.strip())
+def create_portfolio(
+    portfolio: PortfolioCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new portfolio owned by the authenticated user."""
+    p = Portfolio(name=portfolio.name.strip(), owner_id=user.id)
     db.add(p)
     db.commit()
     db.refresh(p)
@@ -27,45 +40,101 @@ def create_portfolio(portfolio: PortfolioCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{portfolio_id}", response_model=PortfolioWithHoldings)
-def get_portfolio(portfolio_id: int, db: Session = Depends(get_db)):
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
+def get_portfolio(
+    portfolio: Portfolio = Depends(get_portfolio_view)
+):
+    """Get portfolio with holdings - requires view access."""
     return portfolio
 
 
-@router.get("/", response_model=List[PortfolioResponse])
-def list_portfolios(db: Session = Depends(get_db)):
-    return db.query(Portfolio).order_by(Portfolio.created_at.desc()).all()
+@router.get("/", response_model=List[PortfolioListResponse])
+def list_portfolios(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List portfolios the user owns or has been shared with.
+    Returns portfolios with is_owner and permission fields.
+    """
+    # Get owned portfolios
+    owned = db.query(Portfolio).filter(Portfolio.owner_id == user.id).all()
+    
+    # Get shared portfolios
+    shares = db.query(PortfolioShare).filter(
+        PortfolioShare.shared_with_user_id == user.id
+    ).all()
+    
+    shared_portfolio_ids = [s.portfolio_id for s in shares]
+    shared = db.query(Portfolio).filter(Portfolio.id.in_(shared_portfolio_ids)).all() if shared_portfolio_ids else []
+    
+    # Build response with ownership info
+    result = []
+    
+    for p in owned:
+        result.append(PortfolioListResponse(
+            id=p.id,
+            name=p.name,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+            is_owner=True,
+            permission=None,
+            owner_email=user.email
+        ))
+    
+    # Create a lookup for shares
+    share_by_portfolio = {s.portfolio_id: s for s in shares}
+    
+    for p in shared:
+        share = share_by_portfolio.get(p.id)
+        owner = db.query(User).filter(User.id == p.owner_id).first() if p.owner_id else None
+        result.append(PortfolioListResponse(
+            id=p.id,
+            name=p.name,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+            is_owner=False,
+            permission=share.permission if share else None,
+            owner_email=owner.email if owner else None
+        ))
+    
+    # Sort by created_at desc
+    result.sort(key=lambda x: x.created_at, reverse=True)
+    return result
 
 
 @router.put("/{portfolio_id}", response_model=PortfolioResponse)
-def update_portfolio(portfolio_id: int, portfolio: PortfolioCreate, db: Session = Depends(get_db)):
-    p = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    p.name = portfolio.name.strip()
-    p.updated_at = datetime.utcnow()
+def update_portfolio(
+    portfolio_id: int,
+    portfolio_data: PortfolioCreate,
+    portfolio: Portfolio = Depends(get_portfolio_owner),
+    db: Session = Depends(get_db)
+):
+    """Update portfolio name - owner only."""
+    portfolio.name = portfolio_data.name.strip()
+    portfolio.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(p)
-    return p
+    db.refresh(portfolio)
+    return portfolio
 
 
 @router.delete("/{portfolio_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_portfolio(portfolio_id: int, db: Session = Depends(get_db)):
-    p = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    db.delete(p)
+def delete_portfolio(
+    portfolio: Portfolio = Depends(get_portfolio_owner),
+    db: Session = Depends(get_db)
+):
+    """Delete portfolio - owner only."""
+    db.delete(portfolio)
     db.commit()
 
 
 @router.post("/{portfolio_id}/holdings", response_model=HoldingResponse, status_code=status.HTTP_201_CREATED)
-def add_holding(portfolio_id: int, holding: HoldingCreate, db: Session = Depends(get_db)):
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-
+def add_holding(
+    portfolio_id: int,
+    holding: HoldingCreate,
+    portfolio: Portfolio = Depends(get_portfolio_edit),
+    db: Session = Depends(get_db)
+):
+    """Add holding to portfolio - requires edit access."""
     existing = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == holding.symbol.upper()
@@ -96,11 +165,12 @@ def add_holding(portfolio_id: int, holding: HoldingCreate, db: Session = Depends
 
 
 @router.get("/{portfolio_id}/holdings", response_model=List[HoldingResponse])
-def get_holdings(portfolio_id: int, db: Session = Depends(get_db)):
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    return db.query(Holding).filter(Holding.portfolio_id == portfolio_id).all()
+def get_holdings(
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    db: Session = Depends(get_db)
+):
+    """Get holdings - requires view access."""
+    return db.query(Holding).filter(Holding.portfolio_id == portfolio.id).all()
 
 
 @router.put("/{portfolio_id}/holdings/{symbol}", response_model=HoldingResponse)
@@ -108,8 +178,10 @@ def update_holding(
     portfolio_id: int,
     symbol: str,
     holding: HoldingUpdate,
+    portfolio: Portfolio = Depends(get_portfolio_edit),
     db: Session = Depends(get_db)
 ):
+    """Update holding - requires edit access."""
     h = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == symbol.upper()
@@ -128,7 +200,13 @@ def update_holding(
 
 
 @router.delete("/{portfolio_id}/holdings/{symbol}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_holding(portfolio_id: int, symbol: str, db: Session = Depends(get_db)):
+def delete_holding(
+    portfolio_id: int,
+    symbol: str,
+    portfolio: Portfolio = Depends(get_portfolio_edit),
+    db: Session = Depends(get_db)
+):
+    """Delete holding - requires edit access."""
     h = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == symbol.upper()
@@ -140,13 +218,13 @@ def delete_holding(portfolio_id: int, symbol: str, db: Session = Depends(get_db)
 
 
 @router.post("/{portfolio_id}/monte-carlo", response_model=MonteCarloResponse)
-def run_monte_carlo(portfolio_id: int, request: MonteCarloRequest, db: Session = Depends(get_db)):
-    """Run Monte Carlo simulation for portfolio forward-looking risk analysis."""
-    # Validate portfolio exists
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    
+def run_monte_carlo(
+    portfolio_id: int,
+    request: MonteCarloRequest,
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    db: Session = Depends(get_db)
+):
+    """Run Monte Carlo simulation - requires view access."""
     # Override portfolio_id from path
     request.portfolio_id = portfolio_id
     
@@ -189,13 +267,13 @@ def run_monte_carlo(portfolio_id: int, request: MonteCarloRequest, db: Session =
 
 
 @router.post("/{portfolio_id}/scenario", response_model=ScenarioResponse)
-def run_scenario(portfolio_id: int, request: ScenarioRequest, db: Session = Depends(get_db)):
-    """Run a market shock scenario analysis for a portfolio."""
-    # Validate portfolio exists
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    
+def run_scenario(
+    portfolio_id: int,
+    request: ScenarioRequest,
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    db: Session = Depends(get_db)
+):
+    """Run scenario analysis - requires view access."""
     # Override portfolio_id from path
     request.portfolio_id = portfolio_id
     
@@ -237,13 +315,10 @@ def get_risk_score(
     portfolio_id: int,
     lookback_days: int = Query(default=252, ge=30, le=2520),
     confidence_level: float = Query(default=0.95, gt=0, lt=1),
+    portfolio: Portfolio = Depends(get_portfolio_view),
     db: Session = Depends(get_db)
 ):
-    """Get composite risk score for a portfolio."""
-    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-    
+    """Get composite risk score - requires view access."""
     calculator = get_risk_calculator(db)
     result = calculator.calculate_risk_score(
         portfolio_id=portfolio_id,
@@ -260,10 +335,122 @@ def get_risk_score(
     return RiskScoreResponse(
         portfolio_id=result["portfolio_id"],
         portfolio_name=portfolio.name,
-        as_of_date=date.today(),  # Risk score doesn't have as_of in result
+        as_of_date=date.today(),
         risk_score=result["risk_score"],
         risk_label=result["risk_label"],
         var_component=result["var_component"],
         sharpe_component=result["sharpe_component"],
         correlation_component=result["correlation_component"],
     )
+
+
+# === Share Management Endpoints ===
+
+@router.post("/{portfolio_id}/share", response_model=PortfolioShareResponse, status_code=status.HTTP_201_CREATED)
+def share_portfolio(
+    portfolio_id: int,
+    share_data: PortfolioShareCreate,
+    portfolio: Portfolio = Depends(get_portfolio_owner),
+    db: Session = Depends(get_db)
+):
+    """
+    Share a portfolio with another user - owner only.
+    
+    The target user must already have a Sentinel account (must have signed up at least once).
+    Returns a clear error if the user doesn't exist.
+    """
+    # Find the target user by email
+    target_user = db.query(User).filter(User.email == share_data.email.lower()).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with email '{share_data.email}' not found. They must sign up for Sentinel first before you can share with them."
+        )
+    
+    # Can't share with yourself
+    if target_user.id == portfolio.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot share portfolio with yourself (you are the owner)"
+        )
+    
+    # Check if share already exists
+    existing_share = db.query(PortfolioShare).filter(
+        PortfolioShare.portfolio_id == portfolio_id,
+        PortfolioShare.shared_with_user_id == target_user.id
+    ).first()
+    
+    if existing_share:
+        # Update existing share permission
+        existing_share.permission = share_data.permission
+        existing_share.created_by_user_id = portfolio.owner_id
+        db.commit()
+        db.refresh(existing_share)
+        share = existing_share
+    else:
+        # Create new share
+        share = PortfolioShare(
+            portfolio_id=portfolio_id,
+            shared_with_user_id=target_user.id,
+            permission=share_data.permission,
+            created_by_user_id=portfolio.owner_id
+        )
+        db.add(share)
+        db.commit()
+        db.refresh(share)
+    
+    return PortfolioShareResponse(
+        id=share.id,
+        portfolio_id=share.portfolio_id,
+        shared_with_user_id=share.shared_with_user_id,
+        shared_with_email=target_user.email,
+        permission=share.permission,
+        created_at=share.created_at,
+        created_by_user_id=share.created_by_user_id
+    )
+
+
+@router.get("/{portfolio_id}/shares", response_model=List[PortfolioShareResponse])
+def list_shares(
+    portfolio: Portfolio = Depends(get_portfolio_owner),
+    db: Session = Depends(get_db)
+):
+    """List all shares for a portfolio - owner only."""
+    shares = db.query(PortfolioShare).filter(
+        PortfolioShare.portfolio_id == portfolio.id
+    ).all()
+    
+    result = []
+    for share in shares:
+        shared_user = db.query(User).filter(User.id == share.shared_with_user_id).first()
+        result.append(PortfolioShareResponse(
+            id=share.id,
+            portfolio_id=share.portfolio_id,
+            shared_with_user_id=share.shared_with_user_id,
+            shared_with_email=shared_user.email if shared_user else "unknown",
+            permission=share.permission,
+            created_at=share.created_at,
+            created_by_user_id=share.created_by_user_id
+        ))
+    
+    return result
+
+
+@router.delete("/{portfolio_id}/shares/{share_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_share(
+    portfolio_id: int,
+    share_id: int,
+    portfolio: Portfolio = Depends(get_portfolio_owner),
+    db: Session = Depends(get_db)
+):
+    """Revoke a share - owner only."""
+    share = db.query(PortfolioShare).filter(
+        PortfolioShare.id == share_id,
+        PortfolioShare.portfolio_id == portfolio_id
+    ).first()
+    
+    if not share:
+        raise HTTPException(status_code=404, detail="Share not found")
+    
+    db.delete(share)
+    db.commit()

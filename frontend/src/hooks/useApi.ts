@@ -20,6 +20,9 @@ import type {
   ScenarioResponse,
   RiskScoreResponse,
   HealthResponse,
+  PortfolioShare,
+  SharePortfolioRequest,
+  PermissionLevel,
 } from '@/types/api';
 
 // Portfolio hooks
@@ -223,5 +226,38 @@ export function useHealth() {
     queryFn: healthApi.check,
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 3,
+  });
+}
+
+// Share hooks
+export function useShares(portfolioId: number | null) {
+  return useQuery({
+    queryKey: ['shares', portfolioId],
+    queryFn: () => portfolioApi.getShares(portfolioId!),
+    enabled: !!portfolioId,
+  });
+}
+
+export function useSharePortfolio() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ portfolioId, data }: { portfolioId: number; data: SharePortfolioRequest }) =>
+      portfolioApi.share(portfolioId, data),
+    onSuccess: (_, { portfolioId }) => {
+      queryClient.invalidateQueries({ queryKey: ['shares', portfolioId] });
+      queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+    },
+  });
+}
+
+export function useRevokeShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ portfolioId, shareId }: { portfolioId: number; shareId: number }) =>
+      portfolioApi.revokeShare(portfolioId, shareId),
+    onSuccess: (_, { portfolioId }) => {
+      queryClient.invalidateQueries({ queryKey: ['shares', portfolioId] });
+      queryClient.invalidateQueries({ queryKey: ['portfolios'] });
+    },
   });
 }

@@ -16,13 +16,22 @@ from app.schemas import (
 )
 from app.services.risk_calculator import get_risk_calculator
 from app.services.yfinance_service import yfinance_service
+from app.auth import get_current_user
+from app.authorization import get_portfolio_view, get_portfolio_edit, AccessLevel
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 logger = logging.getLogger(__name__)
 
 
 @router.post("/batch", response_model=List[PriceIngestResponse])
-def ingest_batch_prices(request: PriceIngestRequest, db: Session = Depends(get_db)):
+def ingest_batch_prices(
+    request: PriceIngestRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Batch ingest price data - public endpoint (no auth required).
+    Price data is global and not tied to user portfolios.
+    """
     logger.info(f"Batch ingest requested for symbols: {request.symbols}, date range: {request.start_date} to {request.end_date}")
     
     results = yfinance_service.fetch_multiple_symbols(
@@ -120,6 +129,7 @@ def get_price_history(
     limit: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db)
 ):
+    """Get price history - public endpoint (no auth required)."""
     symbol = symbol.upper()
     end = end_date or date.today()
     start = start_date or date(end.year - 1, end.month, end.day)
@@ -137,6 +147,7 @@ def get_price_history(
 
 @router.get("/price-history/{symbol}/latest", response_model=PriceHistoryResponse)
 def get_latest_price(symbol: str, as_of: Optional[date] = Query(None), db: Session = Depends(get_db)):
+    """Get latest price - public endpoint (no auth required)."""
     symbol = symbol.upper()
     query = db.query(PriceHistory).filter(PriceHistory.symbol == symbol)
     if as_of:
@@ -149,13 +160,14 @@ def get_latest_price(symbol: str, as_of: Optional[date] = Query(None), db: Sessi
 
 
 @router.post("/portfolio-value", response_model=PortfolioValueResponse)
-def get_portfolio_value(request: PortfolioValueRequest, db: Session = Depends(get_db)):
-    portfolio = db.query(Portfolio).filter(Portfolio.id == request.portfolio_id).first()
-    if not portfolio:
-        raise HTTPException(status_code=404, detail="Portfolio not found")
-
+def get_portfolio_value(
+    request: PortfolioValueRequest,
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    db: Session = Depends(get_db)
+):
+    """Get portfolio value - requires view access."""
     as_of = request.as_of_date or date.today()
-    holdings = db.query(Holding).filter(Holding.portfolio_id == request.portfolio_id).all()
+    holdings = db.query(Holding).filter(Holding.portfolio_id == portfolio.id).all()
 
     total_value = Decimal("0")
     total_cost = Decimal("0")
@@ -211,12 +223,17 @@ def get_portfolio_value(request: PortfolioValueRequest, db: Session = Depends(ge
 
 
 @router.post("/risk-metrics", response_model=RiskMetricsResponse)
-def get_risk_metrics(request: RiskMetricsRequest, db: Session = Depends(get_db)):
-    logger.info(f"Calculating risk metrics for portfolio {request.portfolio_id}, lookback={request.lookback_days}, confidence={request.confidence_level}")
+def get_risk_metrics(
+    request: RiskMetricsRequest,
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    db: Session = Depends(get_db)
+):
+    """Get risk metrics - requires view access."""
+    logger.info(f"Calculating risk metrics for portfolio {portfolio.id}, lookback={request.lookback_days}, confidence={request.confidence_level}")
     
     calculator = get_risk_calculator(db)
     result = calculator.calculate_portfolio_risk(
-        portfolio_id=request.portfolio_id,
+        portfolio_id=portfolio.id,
         lookback_days=request.lookback_days,
         confidence_level=request.confidence_level
     )
@@ -225,10 +242,10 @@ def get_risk_metrics(request: RiskMetricsRequest, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="Portfolio not found")
     
     if "error" in result:
-        logger.error(f"Risk calculation error for portfolio {request.portfolio_id}: {result['error']}")
+        logger.error(f"Risk calculation error for portfolio {portfolio.id}: {result['error']}")
         raise HTTPException(status_code=400, detail=result["error"])
     
-    logger.info(f"Risk metrics calculated successfully for portfolio {request.portfolio_id}")
+    logger.info(f"Risk metrics calculated successfully for portfolio {portfolio.id}")
     
     return RiskMetricsResponse(
         portfolio_id=result["portfolio_id"],
@@ -252,6 +269,7 @@ def ingest_single_price(
     end_date: date = Query(...),
     db: Session = Depends(get_db)
 ):
+    """Single symbol ingest - public endpoint (no auth required)."""
     symbol = symbol.upper()
     logger.info(f"Single symbol ingest requested for {symbol}, date range: {start_date} to {end_date}")
     

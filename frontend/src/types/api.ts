@@ -4,6 +4,9 @@ export interface Portfolio {
   created_at: string;
   updated_at: string;
   holdings?: Holding[];
+  is_owner?: boolean;
+  permission?: 'view' | 'edit';
+  owner_email?: string;
 }
 
 export interface Holding {
@@ -216,4 +219,21 @@ export interface ApiError {
     input: unknown;
     ctx?: Record<string, unknown>;
   }>;
+}
+
+export type PermissionLevel = 'view' | 'edit';
+
+export interface PortfolioShare {
+  id: number;
+  portfolio_id: number;
+  shared_with_user_id: number;
+  shared_with_email: string;
+  permission: PermissionLevel;
+  created_at: string;
+  created_by_user_id: number;
+}
+
+export interface SharePortfolioRequest {
+  email: string;
+  permission: PermissionLevel;
 }

@@ -17,6 +17,9 @@ import type {
   RiskScoreResponse,
   HealthResponse,
   ApiError,
+  PortfolioShare,
+  SharePortfolioRequest,
+  PermissionLevel,
 } from '@/types/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -32,9 +35,28 @@ const api = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor for logging
+// Function to get the Clerk JWT token (client-side)
+let getTokenFn: (() => Promise<string | null>) | null = null;
+
+export function setGetTokenFn(fn: () => Promise<string | null>) {
+  getTokenFn = fn;
+}
+
+// Request interceptor for logging and auth
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
+    // Add auth token if available
+    if (getTokenFn) {
+      try {
+        const token = await getTokenFn();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (e) {
+        console.warn('Failed to get auth token:', e);
+      }
+    }
+    
     if (process.env.NODE_ENV === 'development') {
       console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     }
@@ -74,6 +96,13 @@ export const portfolioApi = {
     unwrap(api.put<Holding>(`/api/v1/portfolios/${portfolioId}/holdings/${symbol}`, data)),
   deleteHolding: (portfolioId: number, symbol: string) =>
     unwrap(api.delete(`/api/v1/portfolios/${portfolioId}/holdings/${symbol}`)),
+
+  // Shares
+  getShares: (portfolioId: number) => unwrap(api.get<PortfolioShare[]>(`/api/v1/portfolios/${portfolioId}/shares`)),
+  share: (portfolioId: number, data: SharePortfolioRequest) =>
+    unwrap(api.post<PortfolioShare>(`/api/v1/portfolios/${portfolioId}/share`, data)),
+  revokeShare: (portfolioId: number, shareId: number) =>
+    unwrap(api.delete(`/api/v1/portfolios/${portfolioId}/shares/${shareId}`)),
 };
 
 // Ingestion endpoints

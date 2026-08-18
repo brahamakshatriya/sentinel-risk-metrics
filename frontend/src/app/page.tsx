@@ -6,9 +6,11 @@ import { usePortfolios, useCreatePortfolio } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { formatCurrency, formatDate, formatPercent } from '@/lib/utils';
+import { Badge } from '@/components/ui/Badge';
+import { formatDate } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
+import type { Portfolio } from '@/types/api';
 
 export default function PortfolioListPage() {
   const { data: portfolios, isLoading, error, refetch } = usePortfolios();
@@ -63,6 +65,10 @@ export default function PortfolioListPage() {
       </div>
     );
   }
+
+  // Separate owned and shared portfolios
+  const ownedPortfolios = (portfolios || []).filter((p: Portfolio) => p.is_owner);
+  const sharedPortfolios = (portfolios || []).filter((p: Portfolio) => !p.is_owner);
 
   return (
     <div className="min-h-screen p-6">
@@ -125,45 +131,104 @@ export default function PortfolioListPage() {
           </div>
         )}
 
-        {portfolios && Array.isArray(portfolios) && portfolios.length === 0 && (
+        {ownedPortfolios.length === 0 && sharedPortfolios.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No portfolios yet</p>
             <Button onClick={() => setShowCreate(true)}>Create Your First Portfolio</Button>
           </div>
         )}
 
-        {portfolios && Array.isArray(portfolios) && portfolios.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {portfolios.map((portfolio) => (
-              <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardHeader>
-                    <CardTitle className="text-lg">{portfolio.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Created {formatDate(portfolio.created_at)}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">ID</span>
-                        <span className="font-mono">{portfolio.id}</span>
+        {/* My Portfolios Section */}
+        {ownedPortfolios.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              My Portfolios
+              <Badge variant="secondary">{ownedPortfolios.length}</Badge>
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {ownedPortfolios.map((portfolio: Portfolio) => (
+                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-green-500/20">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{portfolio.name}</CardTitle>
+                        <Badge variant="default" className="bg-green-500/20 text-green-400">Owner</Badge>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Updated</span>
-                        <span>{formatDate(portfolio.updated_at)}</span>
-                      </div>
-                      {portfolio.holdings && portfolio.holdings.length > 0 && (
-                        <div className="flex justify-between pt-2 border-t">
-                          <span className="text-muted-foreground">Holdings</span>
-                          <span className="font-medium">{portfolio.holdings.length}</span>
+                      <p className="text-sm text-muted-foreground">
+                        Created {formatDate(portfolio.created_at)}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">ID</span>
+                          <span className="font-mono">{portfolio.id}</span>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Updated</span>
+                          <span>{formatDate(portfolio.updated_at)}</span>
+                        </div>
+                        {portfolio.holdings && portfolio.holdings.length > 0 && (
+                          <div className="flex justify-between pt-2 border-t">
+                            <span className="text-muted-foreground">Holdings</span>
+                            <span className="font-medium">{portfolio.holdings.length}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Shared with Me Section */}
+        {sharedPortfolios.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              Shared with Me
+              <Badge variant="secondary">{sharedPortfolios.length}</Badge>
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sharedPortfolios.map((portfolio: Portfolio) => (
+                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-blue-500/20">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{portfolio.name}</CardTitle>
+                        <Badge variant={portfolio.permission === 'edit' ? 'default' : 'outline'}>
+                          {portfolio.permission === 'edit' ? 'Can edit' : 'View only'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {portfolio.owner_email ? `Shared by ${portfolio.owner_email}` : 'Shared portfolio'}
+                        {' • '}
+                        Created {formatDate(portfolio.created_at)}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">ID</span>
+                          <span className="font-mono">{portfolio.id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Updated</span>
+                          <span>{formatDate(portfolio.updated_at)}</span>
+                        </div>
+                        {portfolio.holdings && portfolio.holdings.length > 0 && (
+                          <div className="flex justify-between pt-2 border-t">
+                            <span className="text-muted-foreground">Holdings</span>
+                            <span className="font-medium">{portfolio.holdings.length}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </div>

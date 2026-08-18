@@ -5,6 +5,7 @@ import { cn, formatRelativeTime } from '@/lib/utils';
 import { useHealth } from '@/hooks/useApi';
 import { useRiskScore } from '@/hooks/useApi';
 import { useRouter, useParams } from 'next/navigation';
+import { UserButton } from '@clerk/nextjs';
 
 interface StatusBarProps {
   position?: 'top' | 'bottom';
@@ -93,23 +94,27 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
           <span>Last refresh: {formatRelativeTime(lastRefresh)}</span>
         </div>
 
-        {/* Right: Risk Score (only on portfolio pages) */}
-        {portfolioId && (
-          <div className="flex items-center gap-2">
-            {scoreLoading ? (
-              <span className="text-muted-foreground">Risk: —</span>
-            ) : riskScore ? (
-              <span className={cn(
-                'px-2 py-0.5 rounded font-mono font-medium',
-                getRiskScoreColor(riskScore.risk_score)
-              )}>
-                Risk: {riskScore.risk_score}/100
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Risk: N/A</span>
-            )}
-          </div>
-        )}
+        {/* Right: Risk Score (only on portfolio pages) + UserButton */}
+        <div className="flex items-center gap-2">
+          {portfolioId && (
+            <>
+              {scoreLoading ? (
+                <span className="text-muted-foreground">Risk: —</span>
+              ) : riskScore ? (
+                <span className={cn(
+                  'px-2 py-0.5 rounded font-mono font-medium',
+                  getRiskScoreColor(riskScore.risk_score)
+                )}>
+                  Risk: {riskScore.risk_score}/100
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Risk: N/A</span>
+              )}
+              <span className="text-muted-foreground">•</span>
+            </>
+          )}
+          <UserButton afterSignOutUrl="/" />
+        </div>
       </div>
     </div>
   );
