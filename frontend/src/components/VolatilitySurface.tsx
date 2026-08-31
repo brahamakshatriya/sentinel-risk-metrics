@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -184,10 +184,9 @@ function VolatilitySurfaceMesh() {
     }
   });
 
-  const handlePointerMove = (event: React.PointerEvent) => {
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    mouseRef.current.x = (event.clientX - rect.left) / rect.width;
-    mouseRef.current.y = 1 - (event.clientY - rect.top) / rect.height;
+  const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
+    mouseRef.current.x = (event.originalEvent.clientX / window.innerWidth) * 2 - 1;
+    mouseRef.current.y = -(event.originalEvent.clientY / window.innerHeight) * 2 + 1;
   };
 
   return (
