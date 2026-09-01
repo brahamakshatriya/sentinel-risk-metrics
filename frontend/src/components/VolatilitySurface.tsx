@@ -185,8 +185,8 @@ function VolatilitySurfaceMesh() {
   });
 
   const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
-    mouseRef.current.x = (event.originalEvent.clientX / window.innerWidth) * 2 - 1;
-    mouseRef.current.y = -(event.originalEvent.clientY / window.innerHeight) * 2 + 1;
+    mouseRef.current.x = (event.nativeEvent.clientX / window.innerWidth) * 2 - 1;
+    mouseRef.current.y = -(event.nativeEvent.clientY / window.innerHeight) * 2 + 1;
   };
 
   return (
