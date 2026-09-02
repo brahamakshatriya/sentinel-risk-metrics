@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import dynamic from 'next/dynamic';
 import { BarChart2, Activity, Zap, Shield, TrendingUp, Globe, Cpu, Lock } from 'lucide-react';
+import { LiquidGlassCard } from '@/components/ui/LiquidGlass';
 
 const VolatilitySurface = dynamic(
   () => import('@/components/VolatilitySurface').then((mod) => mod.default),
@@ -172,18 +173,16 @@ function FeatureCard({ feature, index }: { feature: typeof features[0]; index: n
       transition={{ delay: index * 0.1, duration: 0.5 }}
       className="group"
     >
-      <Card className="h-full border-border/50 hover:border-primary/30 transition-all duration-300 group-hover:shadow-[0_0_40px_-10px_hsl(var(--primary)/0.15)]">
-        <CardContent className="p-6">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-            <Icon className="w-6 h-6 text-primary" strokeWidth={1.5} />
-          </div>
-          <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-          <p className="text-muted-foreground text-base leading-relaxed mb-4">{feature.description}</p>
-          <div className="pt-4 border-t border-border/30">
-            <span className="text-xs font-medium text-primary/80 uppercase tracking-wider">{feature.metric}</span>
-          </div>
-        </CardContent>
-      </Card>
+      <LiquidGlassCard intensity="subtle" className="h-full" p={6}>
+        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+          <Icon className="w-6 h-6 text-primary" strokeWidth={1.5} />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+        <p className="text-muted-foreground text-base leading-relaxed mb-4">{feature.description}</p>
+        <div className="pt-4 border-t border-border/30">
+          <span className="text-xs font-medium text-primary/80 uppercase tracking-wider">{feature.metric}</span>
+        </div>
+      </LiquidGlassCard>
     </motion.div>
   );
 }

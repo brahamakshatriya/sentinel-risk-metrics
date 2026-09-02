@@ -73,4 +73,62 @@ body {
     background-color: hsl(var(--muted));
     border-radius: 3px;
   }
+
+  .liquid-glass {
+    @apply relative overflow-hidden rounded-xl bg-white/5 backdrop-blur-xl border border-white/10;
+    box-shadow: 0 2px 8px -2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.2);
+    isolation: isolate;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: filter, transform;
+  }
+  
+  .liquid-glass::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/5 pointer-events-none;
+  }
+  
+  .liquid-glass::after {
+    content: '';
+    @apply absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none;
+  }
+
+  .liquid-glass-subtle {
+    filter: url(#liquid-glass-subtle);
+  }
+  
+  .liquid-glass-medium {
+    filter: url(#liquid-glass-medium);
+  }
+  
+  .liquid-glass-strong {
+    filter: url(#liquid-glass-strong);
+  }
+
+  .liquid-glass-highlight-subtle {
+    filter: url(#liquid-highlight-subtle);
+  }
+  
+  .liquid-glass-highlight-medium {
+    filter: url(#liquid-highlight-medium);
+  }
+  
+  .liquid-glass-highlight-strong {
+    filter: url(#liquid-highlight-strong);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .liquid-glass-animated {
+      animation: none !important;
+    }
+  }
+}
+
+@layer base {
+  svg[style*="display: none"], svg[style*="display:none"] {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
 }

@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/Separator';
 import { useSharePortfolio, useRevokeShare, useShares } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 import type { PortfolioShare, PermissionLevel } from '@/types/api';
+import { LiquidGlassModal } from '@/components/ui/LiquidGlass';
 
 interface ShareModalProps {
   portfolioId: number;
@@ -83,11 +84,14 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 rounded-lg border bg-card p-6 shadow-lg max-h-[80vh] overflow-y-auto">
+    <LiquidGlassModal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      intensity="medium"
+      className="max-w-lg max-h-[85vh] overflow-y-auto"
+    >
+      <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Share "{portfolioName}"</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground" disabled={shareMutation.isPending || revokingId !== null}>
@@ -193,6 +197,6 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
           )}
         </div>
       </div>
-    </div>
+    </LiquidGlassModal>
   );
 }

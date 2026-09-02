@@ -5,6 +5,7 @@ import './globals.css';
 import { Providers } from './components/Providers';
 import { StatusBar } from '@/components/StatusBar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { LiquidGlassFilters } from '@/components/ui/LiquidGlassFilters';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body className={`${inter.variable} font-sans antialiased dark bg-background text-foreground`}>
+          <LiquidGlassFilters />
           <Providers>
             {children}
             <CommandPalette />

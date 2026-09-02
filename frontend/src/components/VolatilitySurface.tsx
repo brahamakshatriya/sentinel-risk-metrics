@@ -7,6 +7,7 @@ import * as THREE from 'three';
 
 const GRID_SIZE = 64;
 const GRID_SPACING = 0.08;
+const MAX_TIME = 10000;
 
 function VolatilitySurfaceMesh() {
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
@@ -14,6 +15,7 @@ function VolatilitySurfaceMesh() {
   const timeRef = useRef(0);
   const mouseRef = useRef({ x: 0, y: 0 });
   const { size, camera } = useThree();
+  const isVisibleRef = useRef(true);
 
   useEffect(() => {
     const geometry = new THREE.BufferGeometry();
@@ -176,7 +178,13 @@ function VolatilitySurfaceMesh() {
   }, [size]);
 
   useFrame((state, delta) => {
+    if (!isVisibleRef.current) return;
+    
     timeRef.current += delta;
+    if (timeRef.current > MAX_TIME) {
+      timeRef.current = timeRef.current % MAX_TIME;
+    }
+    
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = timeRef.current;
       materialRef.current.uniforms.uMouse.value.lerp(mouseRef.current, 0.05);
@@ -185,6 +193,7 @@ function VolatilitySurfaceMesh() {
   });
 
   const handlePointerMove = (event: ThreeEvent<PointerEvent>) => {
+    if (!isVisibleRef.current) return;
     mouseRef.current.x = (event.nativeEvent.clientX / window.innerWidth) * 2 - 1;
     mouseRef.current.y = -(event.nativeEvent.clientY / window.innerHeight) * 2 + 1;
   };
@@ -202,6 +211,7 @@ function ParticleField() {
   const pointsRef = useRef<THREE.Points | null>(null);
   const timeRef = useRef(0);
   const { size } = useThree();
+  const isVisibleRef = useRef(true);
 
   useEffect(() => {
     const count = 2000;
@@ -317,7 +327,13 @@ function ParticleField() {
   }, [size]);
 
   useFrame((_, delta) => {
+    if (!isVisibleRef.current) return;
+    
     timeRef.current += delta;
+    if (timeRef.current > MAX_TIME) {
+      timeRef.current = timeRef.current % MAX_TIME;
+    }
+    
     if (pointsRef.current?.material instanceof THREE.ShaderMaterial) {
       pointsRef.current.material.uniforms.uTime.value = timeRef.current;
     }
@@ -329,6 +345,7 @@ function ParticleField() {
 function AmbientGlow() {
   const meshRef = useRef<THREE.Mesh | null>(null);
   const timeRef = useRef(0);
+  const isVisibleRef = useRef(true);
 
   useEffect(() => {
     const geometry = new THREE.SphereGeometry(2.5, 32, 32);
@@ -392,7 +409,13 @@ function AmbientGlow() {
   }, []);
 
   useFrame((_, delta) => {
+    if (!isVisibleRef.current) return;
+    
     timeRef.current += delta;
+    if (timeRef.current > MAX_TIME) {
+      timeRef.current = timeRef.current % MAX_TIME;
+    }
+    
     if (meshRef.current?.material instanceof THREE.ShaderMaterial) {
       meshRef.current.material.uniforms.uTime.value = timeRef.current;
     }
@@ -401,11 +424,28 @@ function AmbientGlow() {
   return <mesh ref={meshRef} />;
 }
 
-export function VolatilitySurfaceCanvas() {
+function VolatilitySurfaceCanvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      { rootMargin: '100px', threshold: 0.1 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
   if (!mounted) {
@@ -415,29 +455,32 @@ export function VolatilitySurfaceCanvas() {
   }
 
   return (
-    <Canvas
-      camera={{ position: [0, 1.2, 2.2], fov: 45 }}
-      style={{ width: '100%', height: '100%' }}
-      gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false }}
-      shadows={false}
-    >
-      <color attach="background" args={['#0a0e14']} />
-      <fog attach="fog" args={['#0a0e14', 0.5, 8]} />
-      
-      <AmbientGlow />
-      <VolatilitySurfaceMesh />
-      <ParticleField />
-      
-      <ambientLight intensity={0.3} color="#3a4a5a" />
-      <directionalLight position={[2, 4, 1]} intensity={0.4} color="#5aa9d6" />
-      <directionalLight position={[-1, 2, -2]} intensity={0.2} color="#2a5a7a" />
-    </Canvas>
+    <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+      <Canvas
+        camera={{ position: [0, 1.2, 2.2], fov: 45 }}
+        style={{ width: '100%', height: '100%' }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' }}
+        shadows={false}
+        performance={{ min: 0.5, max: 1 }}
+      >
+        <color attach="background" args={['#0a0e14']} />
+        <fog attach="fog" args={['#0a0e14', 0.5, 8]} />
+        
+        <AmbientGlow />
+        <VolatilitySurfaceMesh />
+        <ParticleField />
+        
+        <ambientLight intensity={0.3} color="#3a4a5a" />
+        <directionalLight position={[2, 4, 1]} intensity={0.4} color="#5aa9d6" />
+        <directionalLight position={[-1, 2, -2]} intensity={0.2} color="#2a5a7a" />
+      </Canvas>
+    </div>
   );
 }
 
 export default function VolatilitySurface() {
   return (
-    <div className="relative w-full h-full min-h-[500px]" style={{ willChange: 'transform' }}>
+    <div className="relative w-full h-full min-h-[500px]" style={{ willChange: 'transform', contain: 'layout style paint' }}>
       <VolatilitySurfaceCanvas />
     </div>
   );

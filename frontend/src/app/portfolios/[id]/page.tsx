@@ -21,6 +21,7 @@ import { MonteCarloControls } from '@/components/MonteCarloControls';
 import { ShareModal } from '@/components/ShareModal';
 import { useForm } from 'react-hook-form';
 import type { Portfolio, PermissionLevel } from '@/types/api';
+import { LiquidGlassModal } from '@/components/ui/LiquidGlass';
 
 interface MonteCarloFormData {
   lookback_days: number;
@@ -476,79 +477,83 @@ export default function PortfolioDashboardPage() {
         isPending={addHolding.isPending}
       />
 
-      {showMonteCarlo && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border bg-card p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Run Monte Carlo Simulation</h2>
-              <button onClick={() => setShowMonteCarlo(false)} className="text-muted-foreground hover:text-foreground">✕</button>
-            </div>
-            
-            <form onSubmit={handleSubmit(handleRunMonteCarlo)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="lookback_days">Lookback Days</Label>
-                  <Input
-                    id="lookback_days"
-                    type="number"
-                    min="30"
-                    max="2520"
-                    {...register('lookback_days', { required: 'Required', min: { value: 30, message: 'Min 30 days' } })}
-                    defaultValue="60"
-                    disabled={runMonteCarlo.isPending}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="num_simulations">Simulations</Label>
-                  <Input
-                    id="num_simulations"
-                    type="number"
-                    min="100"
-                    max="20000"
-                    {...register('num_simulations', { required: 'Required', min: { value: 100, message: 'Min 100' } })}
-                    defaultValue="5000"
-                    disabled={runMonteCarlo.isPending}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="horizon_days">Horizon Days</Label>
-                  <Input
-                    id="horizon_days"
-                    type="number"
-                    min="1"
-                    max="1260"
-                    {...register('horizon_days', { required: 'Required', min: { value: 1, message: 'Min 1 day' } })}
-                    defaultValue="252"
-                    disabled={runMonteCarlo.isPending}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confidence_level">Confidence Level</Label>
-                  <Input
-                    id="confidence_level"
-                    type="number"
-                    step="0.01"
-                    min="0.5"
-                    max="0.99"
-                    {...register('confidence_level', { required: 'Required', min: { value: 0.5, message: 'Min 0.5' }, max: { value: 0.99, message: 'Max 0.99' } })}
-                    defaultValue="0.95"
-                    disabled={runMonteCarlo.isPending}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowMonteCarlo(false)} disabled={runMonteCarlo.isPending}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={runMonteCarlo.isPending}>
-                  {runMonteCarlo.isPending ? 'Running...' : 'Run Simulation'}
-                </Button>
-              </div>
-            </form>
+      {/* Monte Carlo Modal */}
+      <LiquidGlassModal 
+        isOpen={showMonteCarlo} 
+        onClose={() => setShowMonteCarlo(false)} 
+        intensity="medium"
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Run Monte Carlo Simulation</h2>
+            <button onClick={() => setShowMonteCarlo(false)} className="text-muted-foreground hover:text-foreground" disabled={runMonteCarlo.isPending}>✕</button>
           </div>
+          
+          <form onSubmit={handleSubmit(handleRunMonteCarlo)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lookback_days">Lookback Days</Label>
+                <Input
+                  id="lookback_days"
+                  type="number"
+                  min="30"
+                  max="2520"
+                  {...register('lookback_days', { required: 'Required', min: { value: 30, message: 'Min 30 days' } })}
+                  defaultValue="60"
+                  disabled={runMonteCarlo.isPending}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="num_simulations">Simulations</Label>
+                <Input
+                  id="num_simulations"
+                  type="number"
+                  min="100"
+                  max="20000"
+                  {...register('num_simulations', { required: 'Required', min: { value: 100, message: 'Min 100' } })}
+                  defaultValue="5000"
+                  disabled={runMonteCarlo.isPending}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="horizon_days">Horizon Days</Label>
+                <Input
+                  id="horizon_days"
+                  type="number"
+                  min="1"
+                  max="1260"
+                  {...register('horizon_days', { required: 'Required', min: { value: 1, message: 'Min 1 day' } })}
+                  defaultValue="252"
+                  disabled={runMonteCarlo.isPending}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confidence_level">Confidence Level</Label>
+                <Input
+                  id="confidence_level"
+                  type="number"
+                  step="0.01"
+                  min="0.5"
+                  max="0.99"
+                  {...register('confidence_level', { required: 'Required', min: { value: 0.5, message: 'Min 0.5' }, max: { value: 0.99, message: 'Max 0.99' } })}
+                  defaultValue="0.95"
+                  disabled={runMonteCarlo.isPending}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setShowMonteCarlo(false)} disabled={runMonteCarlo.isPending}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={runMonteCarlo.isPending}>
+                {runMonteCarlo.isPending ? 'Running...' : 'Run Simulation'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
+      </LiquidGlassModal>
 
       {/* Share Modal */}
       <ShareModal

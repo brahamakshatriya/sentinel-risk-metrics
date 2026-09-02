@@ -6,6 +6,7 @@ import { useHealth } from '@/hooks/useApi';
 import { useRiskScore } from '@/hooks/useApi';
 import { useRouter, useParams } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
+import { LiquidGlass } from '@/components/ui/LiquidGlass';
 
 interface StatusBarProps {
   position?: 'top' | 'bottom';
@@ -64,12 +65,8 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
     : 'fixed bottom-0 left-0 right-0 z-40 border-t';
 
   return (
-    <div className={cn(
-      'bg-background/95 backdrop-blur-sm border-muted/30',
-      positionClasses,
-      className
-    )}>
-      <div className="flex items-center justify-between px-4 py-1.5 text-xs">
+    <LiquidGlass intensity="subtle" animated={false} highlight={true} className={cn(positionClasses, 'px-4 py-1.5', className)}>
+      <div className="flex items-center justify-between text-xs">
         {/* Left: Health Status */}
         <div className="flex items-center gap-2">
           <span className={cn('font-mono font-medium', getHealthColor(healthStatus))}>
@@ -116,6 +113,6 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
           <UserButton afterSignOutUrl="/" />
         </div>
       </div>
-    </div>
+    </LiquidGlass>
   );
 }
