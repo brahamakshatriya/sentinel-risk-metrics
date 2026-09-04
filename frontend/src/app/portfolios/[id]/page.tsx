@@ -30,6 +30,55 @@ interface MonteCarloFormData {
   confidence_level: number;
 }
 
+// Exact backend messages for "holdings exist but no PriceHistory rows"
+// (see RiskCalculator.calculate_portfolio_risk). Only these messages
+// trigger the empty-data state — every other error keeps the red
+// Retry panels so genuine failures are never hidden.
+const NO_PRICE_DATA_MESSAGES = [
+  'no price data available in database',
+  'no price data available for holdings',
+];
+
+function isNoPriceDataError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return NO_PRICE_DATA_MESSAGES.some((known) => message.includes(known));
+}
+
+function NoMarketDataEmptyState({
+  title,
+  onFetch,
+  isFetching,
+  fetchError,
+  canFetch,
+}: {
+  title: string;
+  onFetch: () => void;
+  isFetching: boolean;
+  fetchError: string | null;
+  canFetch: boolean;
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-6 text-center">
+      <p className="font-medium mb-2">{title}</p>
+      <p className="text-sm text-muted-foreground mb-4">
+        This portfolio has holdings but no market price data yet. Fetch the last two
+        years of prices to unlock Sentinel, correlation, and valuation.
+      </p>
+      {canFetch ? (
+        <Button variant="outline" onClick={onFetch} disabled={isFetching}>
+          {isFetching ? 'Fetching price data...' : 'Fetch Price Data'}
+        </Button>
+      ) : (
+        <p className="text-sm text-muted-foreground">Ask the portfolio owner to fetch price data.</p>
+      )}
+      {fetchError && (
+        <p className="text-sm text-red-400 mt-3">{fetchError}</p>
+      )}
+    </div>
+  );
+}
+
 export default function PortfolioDashboardPage() {
   const params = useParams();
   const router = useRouter();
@@ -38,7 +87,7 @@ export default function PortfolioDashboardPage() {
   const { data: portfolio, isLoading: portfolioLoading, error: portfolioError } = usePortfolio(portfolioId);
   const { data: holdings, isLoading: holdingsLoading, refetch: refetchHoldings } = useHoldings(portfolioId);
   const { data: portfolioValue, isLoading: valueLoading } = usePortfolioValue(portfolioId);
-  const { data: riskMetrics, isLoading: metricsLoading, refetch: refetchRiskMetrics } = useRiskMetrics(portfolioId, 60, 0.95);
+  const { data: riskMetrics, isLoading: metricsLoading, error: riskMetricsError, refetch: refetchRiskMetrics } = useRiskMetrics(portfolioId, 60, 0.95);
   const { data: riskScore } = useRiskScore(portfolioId, 252, 0.95);
   const scenario = useScenario();
   
@@ -152,6 +201,25 @@ export default function PortfolioDashboardPage() {
       refetchHoldings();
     }
   };
+
+  const handleFetchPrices = async () => {
+    const symbols = holdingsForTable.map((h) => h.symbol);
+    const today = new Date();
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    await ingestBatch.mutateAsync({
+      symbols,
+      start_date: twoYearsAgo.toISOString().split('T')[0],
+      end_date: today.toISOString().split('T')[0],
+    });
+  };
+
+  // Legitimate empty state: holdings exist but no PriceHistory rows yet.
+  // Genuine API/network failures fall through to the red Retry panels.
+  const showNoMarketDataState =
+    !metricsLoading && !riskMetrics && isNoPriceDataError(riskMetricsError);
+  const ingestErrorMessage =
+    ingestBatch.error instanceof Error ? ingestBatch.error.message : null;
 
   const handleRunMonteCarlo = async (data: MonteCarloFormData) => {
     await runMonteCarlo.mutateAsync({
@@ -297,12 +365,22 @@ export default function PortfolioDashboardPage() {
         {/* Risk Matrix + Scenario Lab */}
         <div className="grid gap-6 lg:grid-cols-2 mb-8">
           <div>
-            <RiskMatrix
-              data={riskMatrixData}
-              isLoading={metricsLoading}
-              error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load risk matrix" : undefined)}
-              onRetry={refetchRiskMetrics}
-            />
+            {showNoMarketDataState ? (
+              <NoMarketDataEmptyState
+                title="No market data yet"
+                onFetch={handleFetchPrices}
+                isFetching={ingestBatch.isPending}
+                fetchError={ingestErrorMessage}
+                canFetch={canEdit}
+              />
+            ) : (
+              <RiskMatrix
+                data={riskMatrixData}
+                isLoading={metricsLoading || ingestBatch.isPending}
+                error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load risk matrix" : undefined)}
+                onRetry={refetchRiskMetrics}
+              />
+            )}
           </div>
           <div>
             <ScenarioLab
@@ -348,17 +426,7 @@ export default function PortfolioDashboardPage() {
                     {canEdit && (
                       <Button
                         variant="outline"
-                        onClick={async () => {
-                          const symbols = holdingsForTable.map((h) => h.symbol);
-                          const today = new Date();
-                          const twoYearsAgo = new Date();
-                          twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
-                          await ingestBatch.mutateAsync({
-                            symbols,
-                            start_date: twoYearsAgo.toISOString().split('T')[0],
-                            end_date: today.toISOString().split('T')[0],
-                          });
-                        }}
+                        onClick={handleFetchPrices}
                         disabled={ingestBatch.isPending}
                       >
                         {ingestBatch.isPending ? 'Fetching...' : 'Fetch Price Data'}
@@ -390,14 +458,24 @@ export default function PortfolioDashboardPage() {
                 <CardDescription>Pearson correlation of daily returns</CardDescription>
               </CardHeader>
               <CardContent>
-                <CorrelationHeatmap
-                  correlationMatrix={riskMetrics?.correlation_matrix ?? null}
-                  symbols={holdingsForTable.map(h => h.symbol)}
-                  isLoading={metricsLoading}
-                  error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load Sentinel data" : undefined)}
-                  onRetry={refetchRiskMetrics}
-                  lastUpdated={riskMetrics?.as_of_date || null}
-                />
+                {showNoMarketDataState ? (
+                  <NoMarketDataEmptyState
+                    title="No correlation data yet"
+                    onFetch={handleFetchPrices}
+                    isFetching={ingestBatch.isPending}
+                    fetchError={ingestErrorMessage}
+                    canFetch={canEdit}
+                  />
+                ) : (
+                  <CorrelationHeatmap
+                    correlationMatrix={riskMetrics?.correlation_matrix ?? null}
+                    symbols={holdingsForTable.map(h => h.symbol)}
+                    isLoading={metricsLoading || ingestBatch.isPending}
+                    error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load Sentinel data" : undefined)}
+                    onRetry={refetchRiskMetrics}
+                    lastUpdated={riskMetrics?.as_of_date || null}
+                  />
+                )}
               </CardContent>
             </Card>
 
