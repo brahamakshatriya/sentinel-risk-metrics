@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL")
 CLERK_ISSUER = os.getenv("CLERK_ISSUER")
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 
 if not CLERK_JWKS_URL or not CLERK_ISSUER:
     logger.warning("CLERK_JWKS_URL or CLERK_ISSUER not set - authentication will not work")
@@ -99,6 +100,48 @@ def verify_clerk_token(token: str) -> dict:
         )
 
 
+def _resolve_email(clerk_user_id: str, payload: dict) -> Optional[str]:
+    """
+    Resolve the user's email address without ever logging secrets/tokens.
+
+    Order: JWT `email` claim (custom session claims) -> Clerk Backend API
+    lookup via CLERK_SECRET_KEY -> None (caller falls back to placeholder).
+    """
+    # 1. Custom session claim, if the Clerk dashboard adds one.
+    for key in ("email", "primary_email", "email_address"):
+        value = payload.get(key)
+        if isinstance(value, str) and "@" in value:
+            return value.lower()
+
+    # 2. Clerk Backend API lookup. Requires CLERK_SECRET_KEY on the server.
+    if not CLERK_SECRET_KEY:
+        logger.warning("CLERK_SECRET_KEY not set - cannot look up user email via Clerk API")
+        return None
+    try:
+        response = httpx.get(
+            f"https://api.clerk.com/v1/users/{clerk_user_id}",
+            headers={"Authorization": f"Bearer {CLERK_SECRET_KEY}"},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        for addr in data.get("email_addresses", []) or []:
+            if addr.get("id") == data.get("primary_email_address_id"):
+                email = addr.get("email_address")
+                if email:
+                    return email.lower()
+        # Fallback: first verified address, then first address at all.
+        for addr in data.get("email_addresses", []) or []:
+            if addr.get("verification", {}).get("status") == "verified" and addr.get("email_address"):
+                return addr["email_address"].lower()
+        addresses = data.get("email_addresses", []) or []
+        if addresses and addresses[0].get("email_address"):
+            return addresses[0]["email_address"].lower()
+    except Exception as e:
+        logger.warning(f"Clerk user email lookup failed: {e}")
+    return None
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
@@ -115,16 +158,24 @@ async def get_current_user(
         )
     
     payload = verify_clerk_token(credentials.credentials)
-    
+
     clerk_user_id = payload.get("sub")
-    email = payload.get("email")
-    
-    if not clerk_user_id or not email:
+
+    if not clerk_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing required claims (sub, email)"
+            detail="Token missing required claim (sub)"
         )
-    
+
+    # Clerk's default session JWT carries `sub` but NOT `email` at the top
+    # level (unless custom session claims are configured). Resolve the
+    # email with: JWT claim -> Clerk Backend API -> safe placeholder.
+    email = payload.get("email") or _resolve_email(clerk_user_id, payload)
+
+    if not email:
+        logger.warning("Authenticated user has no resolvable email; using placeholder")
+        email = f"{clerk_user_id}@placeholder.local"
+
     # Lazy user creation: find or create user record
     user = db.query(User).filter(User.clerk_user_id == clerk_user_id).first()
     if not user:
@@ -132,8 +183,13 @@ async def get_current_user(
         db.add(user)
         db.commit()
         db.refresh(user)
-        logger.info(f"Created new user record for Clerk ID: {clerk_user_id}")
-    
+        logger.info("Created new user record (local id=%s)", user.id)
+    elif user.email != email and "@placeholder.local" not in user.email and "@placeholder.local" not in email:
+        # Keep the stored email in sync once the real address is known.
+        user.email = email
+        db.commit()
+        db.refresh(user)
+
     return user
 
 
