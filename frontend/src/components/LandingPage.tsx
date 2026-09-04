@@ -1,7 +1,6 @@
 'use client';
 
 import { motion, useScroll, useTransform } from 'framer-motion';
-import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import dynamic from 'next/dynamic';
@@ -119,21 +118,21 @@ function Hero() {
             transition={{ delay: 0.5, duration: 0.6 }}
             className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
           >
-            <Button 
-              size="lg" 
-              className="w-full sm:w-auto px-8 py-3.5 text-lg bg-primary hover:bg-primary/90"
-              asChild
-            >
-              <Link href="/sign-up">Get Started Free</Link>
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className="w-full sm:w-auto px-8 py-3.5 text-lg border-primary/30 hover:bg-primary/5"
-              asChild
-            >
-              <Link href="/sign-in">Sign In</Link>
-            </Button>
+<Button 
+               size="lg" 
+               className="w-full sm:w-auto px-8 py-3.5 text-lg bg-primary hover:bg-primary/90"
+               href="/sign-up"
+             >
+               Get Started Free
+             </Button>
+             <Button 
+               size="lg" 
+               variant="outline" 
+               className="w-full sm:w-auto px-8 py-3.5 text-lg border-primary/30 hover:bg-primary/5"
+               href="/sign-in"
+             >
+               Sign In
+             </Button>
           </motion.div>
 
           <motion.div
@@ -257,9 +256,9 @@ function FinalCTA() {
             Connect your holdings, run simulations, and stress test in seconds. 
             No implementation required — just sign up and start analyzing.
           </p>
-          <Button size="lg" className="px-10 py-4 text-lg" asChild>
-            <Link href="/sign-up">Start Free Trial</Link>
-          </Button>
+<Button size="lg" className="px-10 py-4 text-lg" href="/sign-up">
+             Start Free Trial
+           </Button>
         </motion.div>
       </div>
     </section>

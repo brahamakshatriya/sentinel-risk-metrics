@@ -1,6 +1,7 @@
 'use client';
 
 import { SignUp } from '@clerk/nextjs';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { LiquidGlassCard } from '@/components/ui/LiquidGlass';
 
@@ -28,6 +29,10 @@ export default function SignUpPage() {
               signInUrl="/sign-in"
               redirectUrl="/"
             />
+            <div className="mt-4 text-center text-sm">
+              <span className="text-muted-foreground">Already have an account? </span>
+              <Link href="/sign-in" className="text-primary hover:underline">Sign in</Link>
+            </div>
           </CardContent>
         </Card>
       </LiquidGlassCard>
