@@ -170,7 +170,9 @@ async def get_current_user(
     # Clerk's default session JWT carries `sub` but NOT `email` at the top
     # level (unless custom session claims are configured). Resolve the
     # email with: JWT claim -> Clerk Backend API -> safe placeholder.
-    email = payload.get("email") or _resolve_email(clerk_user_id, payload)
+    # The helper checks JWT claims first and normalizes case so stored
+    # emails match the lowercased share-by-email lookup.
+    email = _resolve_email(clerk_user_id, payload)
 
     if not email:
         logger.warning("Authenticated user has no resolvable email; using placeholder")
