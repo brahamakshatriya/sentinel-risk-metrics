@@ -4,7 +4,7 @@ from typing import Optional
 from functools import lru_cache
 
 import httpx
-from jose import jwt, JWTError
+from jose import jwt, JWTError, jwk
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -58,7 +58,10 @@ def get_signing_key(token: str) -> str:
     
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
-            return jwt.algorithms.RSAAlgorithm.from_jwk(key)
+            # python-jose 3.x exposes JWK construction via jose.jwk
+            # (jwt.algorithms does not exist). Pin RS256 explicitly so
+            # only RSA keys for our enforced algorithm are constructed.
+            return jwk.construct(key, algorithm="RS256")
     
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
