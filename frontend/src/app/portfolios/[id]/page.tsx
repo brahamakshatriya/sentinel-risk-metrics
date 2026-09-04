@@ -391,7 +391,7 @@ export default function PortfolioDashboardPage() {
               </CardHeader>
               <CardContent>
                 <CorrelationHeatmap
-                  correlationMatrix={null}
+                  correlationMatrix={riskMetrics?.correlation_matrix ?? null}
                   symbols={holdingsForTable.map(h => h.symbol)}
                   isLoading={metricsLoading}
                   error={metricsLoading ? undefined : (!riskMetrics && !metricsLoading ? "Failed to load Sentinel data" : undefined)}

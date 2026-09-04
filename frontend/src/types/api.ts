@@ -111,6 +111,7 @@ export interface RiskMetricsResponse {
   cvar_95: string;
   max_drawdown: string;
   sharpe_ratio: string | null;
+  correlation_matrix?: Record<string, Record<string, number>>;
   holdings_var_contribution: Array<{
     symbol: string;
     weight: number;

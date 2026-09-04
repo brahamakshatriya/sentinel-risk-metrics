@@ -139,6 +139,9 @@ class RiskMetricsResponse(BaseModel):
     max_drawdown: Decimal
     sharpe_ratio: Optional[Decimal] = None
     holdings_var_contribution: List[dict] = []
+    # Already computed by the risk calculator; exposed so the frontend
+    # correlation heatmap can render without a second request.
+    correlation_matrix: dict = {}
 
 
 class MonteCarloRequest(BaseModel):

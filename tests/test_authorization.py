@@ -41,13 +41,22 @@ async def _override_get_current_user():
         db.close()
 
 
-app.dependency_overrides[get_db] = _override_get_db
-app.dependency_overrides[get_current_user] = _override_get_current_user
-
 # NOTE: TestClient is intentionally NOT used as a context manager so the
 # app lifespan (which would touch the real DATABASE_URL engine) never runs.
-# All DB access in these tests goes through the overridden get_db above.
+# All DB access in these tests goes through the overridden get_db below.
 client = TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(autouse=True)
+def _overrides():
+    """Install this module's overrides per-test: dependency_overrides is
+    app-global, so import-time assignment would leak into (and break) other
+    test modules that override the same dependencies."""
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_current_user] = _override_get_current_user
+    yield
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture()

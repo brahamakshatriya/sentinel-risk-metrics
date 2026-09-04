@@ -7,7 +7,7 @@ from decimal import Decimal
 import logging
 
 from app.db.database import get_db
-from app.models import PriceHistory, Portfolio, Holding
+from app.models import PriceHistory, Portfolio, Holding, User
 from app.schemas import (
     PriceIngestRequest, PriceIngestResponse,
     PriceHistoryResponse,
@@ -17,7 +17,32 @@ from app.schemas import (
 from app.services.risk_calculator import get_risk_calculator
 from app.services.yfinance_service import yfinance_service
 from app.auth import get_current_user
-from app.authorization import get_portfolio_view, get_portfolio_edit, AccessLevel
+from app.authorization import (
+    get_portfolio_view, get_portfolio_edit,
+    get_portfolio_access_level, AccessLevel,
+)
+
+
+def _get_viewable_portfolio(portfolio_id: int, user: User, db) -> Portfolio:
+    """
+    Resolve a portfolio by id from a request BODY (not a path param).
+
+    The shared get_portfolio_view dependency binds `portfolio_id` from the
+    path, falling back to REQUIRED query param when the route has no
+    {portfolio_id} segment — which made body-based POST endpoints return
+    422 'Field required' at ('query', 'portfolio_id'). This helper keeps
+    the identical authorization semantics (owner first, then shares)
+    while reading the id from the validated request body.
+    """
+    portfolio = db.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    if get_portfolio_access_level(user, portfolio, db) == AccessLevel.NONE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this portfolio"
+        )
+    return portfolio
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 logger = logging.getLogger(__name__)
@@ -162,10 +187,11 @@ def get_latest_price(symbol: str, as_of: Optional[date] = Query(None), db: Sessi
 @router.post("/portfolio-value", response_model=PortfolioValueResponse)
 def get_portfolio_value(
     request: PortfolioValueRequest,
-    portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get portfolio value - requires view access."""
+    portfolio = _get_viewable_portfolio(request.portfolio_id, user, db)
     as_of = request.as_of_date or date.today()
     holdings = db.query(Holding).filter(Holding.portfolio_id == portfolio.id).all()
 
@@ -225,10 +251,11 @@ def get_portfolio_value(
 @router.post("/risk-metrics", response_model=RiskMetricsResponse)
 def get_risk_metrics(
     request: RiskMetricsRequest,
-    portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get risk metrics - requires view access."""
+    portfolio = _get_viewable_portfolio(request.portfolio_id, user, db)
     logger.info(f"Calculating risk metrics for portfolio {portfolio.id}, lookback={request.lookback_days}, confidence={request.confidence_level}")
     
     calculator = get_risk_calculator(db)
@@ -258,7 +285,8 @@ def get_risk_metrics(
         cvar_95=Decimal(str(round(result["var_parametric"], 6))),
         max_drawdown=Decimal(str(round(result["max_drawdown"], 6))),
         sharpe_ratio=Decimal(str(round(result["sharpe_ratio"], 4))) if result["sharpe_ratio"] is not None else None,
-        holdings_var_contribution=result.get("holdings_var_contribution", [])
+        holdings_var_contribution=result.get("holdings_var_contribution", []),
+        correlation_matrix=result.get("correlation_matrix", {}),
     )
 
 
