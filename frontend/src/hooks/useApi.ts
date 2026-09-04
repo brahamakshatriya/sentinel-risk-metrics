@@ -219,12 +219,19 @@ export function useScenario() {
   });
 }
 
-// Health check hook for status bar
+// Health check hook for status bar.
+// The OFFLINE badge recovers ONLY via this poll (no manual retry exists),
+// so the poll must not silently stall: keep it running in background tabs
+// and revalidate immediately when the tab regains focus. Otherwise a single
+// failed first check (e.g. cold-start timeout) latches OFFLINE with a frozen
+// "Last refresh" while everything else works.
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
     queryFn: healthApi.check,
     refetchInterval: 30000, // Refetch every 30 seconds
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     retry: 3,
   });
 }
