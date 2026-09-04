@@ -51,6 +51,11 @@ class HoldingResponse(HoldingCreate):
 
 class PortfolioWithHoldings(PortfolioResponse):
     holdings: List[HoldingResponse] = []
+    # Ownership context for the requesting user (mirrors PortfolioListResponse).
+    # Required by the frontend detail page, which gates on is_owner/permission.
+    is_owner: bool = False
+    permission: Optional[PermissionLevel] = None
+    owner_email: Optional[str] = None
 
 
 class PriceHistoryCreate(BaseModel):

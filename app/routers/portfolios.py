@@ -41,9 +41,33 @@ def create_portfolio(
 
 @router.get("/{portfolio_id}", response_model=PortfolioWithHoldings)
 def get_portfolio(
-    portfolio: Portfolio = Depends(get_portfolio_view)
+    portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get portfolio with holdings - requires view access."""
+    """
+    Get portfolio with holdings - requires view access.
+    Attaches the requesting user's ownership context (is_owner/permission/
+    owner_email), which the frontend detail page requires to gate access.
+    Without these fields the page treats every portfolio as inaccessible,
+    including ones the user owns.
+    """
+    access_level = get_portfolio_access_level(user, portfolio, db)
+    is_owner = access_level == AccessLevel.OWNER
+    if access_level == AccessLevel.EDIT:
+        permission = PermissionLevel.edit
+    elif access_level == AccessLevel.VIEW:
+        permission = PermissionLevel.view
+    else:
+        permission = None
+    if is_owner:
+        owner_email = user.email
+    else:
+        owner = db.query(User).filter(User.id == portfolio.owner_id).first() if portfolio.owner_id else None
+        owner_email = owner.email if owner else None
+    portfolio.is_owner = is_owner
+    portfolio.permission = permission
+    portfolio.owner_email = owner_email
     return portfolio
 
 
