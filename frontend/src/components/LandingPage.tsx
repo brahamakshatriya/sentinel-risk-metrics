@@ -62,13 +62,14 @@ function ScrollIndicator() {
 
   return (
     <motion.div
-      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-muted-foreground/60"
+      className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-muted-foreground/40"
       style={{ opacity, y }}
       animate={{ y: [0, 8, 0] }}
       transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+      aria-hidden="true"
     >
-      <span className="text-xs uppercase tracking-widest">Scroll</span>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <span className="text-[10px] uppercase tracking-[0.25em]">Scroll</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M12 5v14M19 12l-7 7-7-7" />
       </svg>
     </motion.div>
@@ -116,8 +117,16 @@ function Hero() {
             'radial-gradient(720px 420px at 50% 38%, rgba(7,10,18,0.55), rgba(7,10,18,0.15) 60%, transparent 78%)',
         }}
       />
+
+      {/* Layer 2b — viewport finish: soft atmospheric fade so the hero
+          settles into the feature section instead of ending abruptly.
+          Static gradient only, no motion. */}
+      <div
+        className="absolute inset-x-0 bottom-0 z-[2] h-44 pointer-events-none bg-gradient-to-b from-transparent via-[#070A12]/60 to-[#070A12]"
+        aria-hidden="true"
+      />
       
-      <div className="relative z-10 px-6 py-20 text-center">
+      <div className="relative z-10 w-full px-5 pt-24 pb-32 sm:px-6 md:py-28 md:pb-36 text-center">
         {/* Localized readability quiet-zone: soft navy calm directly behind
             the central type; radial fade (no card edges, no blur filter,
             static only) keeps the surrounding DotGrid visible. */}
@@ -135,11 +144,11 @@ function Hero() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium mb-6"
+            className="inline-flex items-center gap-2.5 rounded-full border border-[rgba(167,139,250,0.22)] bg-[#0F172A]/70 px-3.5 py-1.5 text-xs font-medium tracking-wide text-[#C4B5FD] mb-7"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#A78BFA] opacity-60"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#A78BFA]"></span>
             </span>
             Now in Beta — Institutional Grade
           </motion.span>
@@ -148,7 +157,7 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight bg-gradient-to-r from-[#F8FAFC] via-[#A78BFA] to-[#22D3EE] bg-clip-text text-transparent leading-[1.05]"
+            className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight bg-gradient-to-r from-[#F8FAFC] via-[#A78BFA] to-[#22D3EE] bg-clip-text text-transparent leading-[1.05]"
           >
             Sentinel
           </motion.h1>
@@ -157,7 +166,7 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed"
+            className="mt-7 text-lg md:text-xl text-slate-300/90 max-w-xl mx-auto leading-relaxed text-balance"
           >
             Institutional-grade portfolio risk analytics. Real-time VaR, Monte Carlo simulations, 
             correlation analysis, and scenario stress testing — built for precision.
@@ -167,11 +176,11 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+            className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
           >
 <Button 
                size="lg" 
-               className="w-full sm:w-auto px-8 py-3.5 text-lg bg-primary hover:bg-primary/90"
+               className="w-full sm:w-auto px-7 sm:px-8 py-3 sm:py-3.5 text-base sm:text-lg font-semibold rounded-xl bg-primary hover:bg-[#6D28D9] shadow-[0_16px_40px_-16px_rgba(124,58,237,0.65)] transition-colors duration-200"
                href="/sign-up"
              >
                Get Started Free
@@ -179,7 +188,7 @@ function Hero() {
              <Button 
                size="lg" 
                variant="outline" 
-               className="w-full sm:w-auto px-8 py-3.5 text-lg border-primary/30 hover:bg-primary/5"
+               className="w-full sm:w-auto px-7 sm:px-8 py-3 sm:py-3.5 text-base sm:text-lg font-medium rounded-xl border-white/10 bg-transparent text-muted-foreground hover:text-foreground hover:border-[rgba(167,139,250,0.35)] hover:bg-white/[0.03] transition-colors duration-200"
                href="/sign-in"
              >
                Sign In
