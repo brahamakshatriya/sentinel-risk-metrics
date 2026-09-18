@@ -205,13 +205,18 @@ function Hero() {
               width="auto"
               height="auto"
               borderRadius={18}
-              brightness={14}
-              opacity={0.6}
-              blur={8}
-              displace={0.4}
-              backgroundOpacity={0.35}
-              saturation={1.15}
-              distortionScale={-80}
+              borderWidth={0.04}
+              brightness={20}
+              opacity={0.55}
+              blur={10}
+              displace={0.15}
+              backgroundOpacity={0.1}
+              saturation={1.05}
+              distortionScale={-25}
+              redOffset={0}
+              greenOffset={0}
+              blueOffset={0}
+              mixBlendMode="normal"
               className="sentinel-glass-strip max-w-full"
             >
               <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2.5 px-4 py-2 text-xs text-muted-foreground sm:text-[13px]">

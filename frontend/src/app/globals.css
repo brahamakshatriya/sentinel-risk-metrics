@@ -207,6 +207,13 @@ body {
     cursor: not-allowed;
   }
 
+  /* Sentinel-scoped GlassSurface edging: a single very subtle violet hairline.
+     The SVG-distortion path in GlassSurface.css sets no border of its own,
+     so there is no cascade conflict — this only adds the quiet edge. */
+  .sentinel-glass-strip {
+    border: 1px solid rgba(167, 139, 250, 0.14);
+  }
+
   /* Sentinel-scoped GlassSurface fallback (Firefox/Safari, no SVG
      distortion support): dark navy tint instead of the default light
      frost so the hero status strip stays institutional in all browsers. */
