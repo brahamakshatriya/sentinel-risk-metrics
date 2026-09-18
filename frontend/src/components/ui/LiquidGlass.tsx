@@ -127,10 +127,9 @@ export function LiquidGlass({
       <div
         className={cn(
           'relative overflow-hidden rounded-xl',
-          'bg-white/5 backdrop-blur-xl',
-          'border border-white/10',
-          'shadow-[0_2px_8px_-2px_rgba(0,0,0,0.3),0_8px_24px_-8px_rgba(0,0,0,0.2)]',
-          'transition-all duration-300',
+          'border backdrop-blur-xl',
+          'shadow-[0_1px_2px_rgba(2,6,16,0.5),0_12px_32px_-16px_rgba(2,6,16,0.7)]',
+          'transition-colors duration-200',
           'will-change-[filter,transform]',
           useFallback ? 'backdrop-blur-2xl' : `filter-[url(#${filterId})] ${highlight ? `filter-[url(#liquid-highlight-${intensity})]` : ''}`,
           className
@@ -139,10 +138,12 @@ export function LiquidGlass({
           isolation: 'isolate',
           transform: 'translateZ(0)',
           backfaceVisibility: 'hidden',
+          background: 'linear-gradient(180deg, rgba(17,24,39,0.72), rgba(15,23,42,0.62))',
+          borderColor: 'rgba(167,139,250,0.16)',
         } as React.CSSProperties}
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/5 pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#EDE9FE]/[0.06] via-transparent to-[#22D3EE]/[0.04] pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#A78BFA]/40 via-[#22D3EE]/25 to-transparent pointer-events-none" />
         <div className="relative z-10">{children}</div>
       </div>
     </>

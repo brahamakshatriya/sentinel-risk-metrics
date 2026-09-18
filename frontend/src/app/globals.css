@@ -3,48 +3,71 @@
 @tailwind utilities;
 
 :root {
-  --background: 222 47% 4%;
-  --foreground: 213 31% 91%;
-  --card: 224 41% 8%;
-  --card-foreground: 213 31% 91%;
-  --popover: 224 41% 8%;
-  --popover-foreground: 213 31% 91%;
-  --primary: 199 89% 48%;
+  /* ——— SENTINEL V2 · Dark institutional foundation ———
+     Palette source: #0F172A navy · #7C3AED violet · #22D3EE cyan
+     #A78BFA lavender · #EDE9FE pale lavender (accent use only).
+     App stays dark: pale lavender is never a page background. */
+  --background: 224 47% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 13%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 262 83% 58%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 215 28% 17%;
+  --secondary: 222 47% 14%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 215 28% 17%;
-  --muted-foreground: 217 10% 64%;
-  --accent: 215 28% 17%;
+  --muted: 222 47% 14%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 263 35% 17%;
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
+  --destructive: 0 63% 42%;
   --destructive-foreground: 210 40% 98%;
-  --border: 215 28% 17%;
-  --input: 215 28% 17%;
-  --ring: 199 89% 48%;
-  --radius: 0.5rem;
+  --border: 252 28% 20%;
+  --input: 252 28% 20%;
+  --ring: 258 84% 74%;
+  --radius: 0.75rem;
+
+  /* Raw brand tokens (for gradients, charts, one-off accents) */
+  --sentinel-background: #070a12;
+  --sentinel-surface: #0f172a;
+  --sentinel-elevated: #111827;
+  --sentinel-violet: #7c3aed;
+  --sentinel-violet-deep: #6d28d9;
+  --sentinel-cyan: #22d3ee;
+  --sentinel-lavender: #a78bfa;
+  --sentinel-pale: #ede9fe;
+  --sentinel-border-soft: rgba(167, 139, 250, 0.16);
+  --sentinel-success: #10b981;
+  --sentinel-warning: #f59e0b;
+  --sentinel-danger: #ef4444;
+
+  /* Elevation + motion */
+  --sentinel-shadow-card: 0 1px 2px rgba(2, 6, 16, 0.5), 0 12px 32px -16px rgba(2, 6, 16, 0.7);
+  --sentinel-shadow-pop: 0 8px 32px -8px rgba(2, 6, 16, 0.8), 0 0 0 1px rgba(167, 139, 250, 0.08);
+  --sentinel-transition: 180ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .dark {
-  --background: 222 47% 4%;
-  --foreground: 213 31% 91%;
-  --card: 224 41% 8%;
-  --card-foreground: 213 31% 91%;
-  --popover: 224 41% 8%;
-  --popover-foreground: 213 31% 91%;
-  --primary: 199 89% 48%;
+  --background: 224 47% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 13%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 262 83% 58%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 215 28% 17%;
+  --secondary: 222 47% 14%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 215 28% 17%;
-  --muted-foreground: 217 10% 64%;
-  --accent: 215 28% 17%;
+  --muted: 222 47% 14%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 263 35% 17%;
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
+  --destructive: 0 63% 42%;
   --destructive-foreground: 210 40% 98%;
-  --border: 215 28% 17%;
-  --input: 215 28% 17%;
-  --ring: 199 89% 48%;
+  --border: 252 28% 20%;
+  --input: 252 28% 20%;
+  --ring: 258 84% 74%;
 }
 
 * {
@@ -55,6 +78,26 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-feature-settings: "rlig" 1, "calt" 1;
+  /* Restrained institutional backdrop: deep navy + faint violet/cyan ambient.
+     Static only — no animation, charts stay dominant. */
+  background-image:
+    radial-gradient(720px 340px at 15% -4%, rgba(124, 58, 237, 0.12), transparent 70%),
+    radial-gradient(640px 300px at 88% 0%, rgba(34, 211, 238, 0.07), transparent 70%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, transparent 320px);
+  background-attachment: fixed;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgba(124, 58, 237, 0.4);
+  }
+  input[type='range'] {
+    accent-color: var(--sentinel-violet);
+  }
 }
 
 @layer utilities {
@@ -75,22 +118,93 @@ body {
   }
 
   .liquid-glass {
-    @apply relative overflow-hidden rounded-xl bg-white/5 backdrop-blur-xl border border-white/10;
-    box-shadow: 0 2px 8px -2px rgba(0,0,0,0.3), 0 8px 24px -8px rgba(0,0,0,0.2);
+    @apply relative overflow-hidden rounded-xl border backdrop-blur-xl;
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.72), rgba(15, 23, 42, 0.62));
+    border-color: var(--sentinel-border-soft);
+    box-shadow: var(--sentinel-shadow-card);
     isolation: isolate;
     transform: translateZ(0);
     backface-visibility: hidden;
     will-change: filter, transform;
   }
-  
+
   .liquid-glass::before {
     content: '';
-    @apply absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/5 pointer-events-none;
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(180deg, rgba(237, 233, 254, 0.07), transparent 38%, rgba(34, 211, 238, 0.04));
   }
-  
+
   .liquid-glass::after {
     content: '';
-    @apply absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none;
+    @apply absolute top-0 left-0 right-0 h-px pointer-events-none;
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.45), rgba(34, 211, 238, 0.3), transparent);
+  }
+
+  /* ——— Sentinel V2 shared primitives ——— */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
+  }
+
+  .metric-value {
+    @apply font-bold tabular-nums tracking-tight text-foreground;
+  }
+
+  .sentinel-card {
+    @apply rounded-xl border bg-card text-card-foreground;
+    border-color: var(--sentinel-border-soft);
+    box-shadow: var(--sentinel-shadow-card);
+  }
+
+  .sentinel-card-elevated {
+    @apply rounded-xl border text-card-foreground;
+    background: linear-gradient(180deg, hsl(var(--popover)), hsl(var(--card)));
+    border-color: var(--sentinel-border-soft);
+    box-shadow: var(--sentinel-shadow-pop);
+  }
+
+  .sentinel-section-title {
+    @apply text-lg font-semibold tracking-tight text-foreground;
+  }
+
+  .sentinel-divider {
+    background: linear-gradient(90deg, transparent, var(--sentinel-border-soft), transparent);
+    height: 1px;
+  }
+
+  .sentinel-chart-tooltip {
+    background: rgba(7, 10, 18, 0.94) !important;
+    border: 1px solid var(--sentinel-border-soft) !important;
+    border-radius: 10px !important;
+    box-shadow: var(--sentinel-shadow-pop) !important;
+    font-size: 12px !important;
+  }
+
+  .sentinel-range {
+    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted;
+    background-image: linear-gradient(90deg, var(--sentinel-violet), var(--sentinel-cyan));
+    background-size: var(--sentinel-range-fill, 50%) 100%;
+    background-repeat: no-repeat;
+  }
+  .sentinel-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    width: 14px;
+    border-radius: 9999px;
+    background: #f8fafc;
+    border: 2px solid var(--sentinel-violet);
+    box-shadow: 0 1px 6px rgba(2, 6, 16, 0.6);
+  }
+  .sentinel-range::-moz-range-thumb {
+    height: 14px;
+    width: 14px;
+    border-radius: 9999px;
+    background: #f8fafc;
+    border: 2px solid var(--sentinel-violet);
+  }
+  .sentinel-range:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .liquid-glass-subtle {
@@ -120,6 +234,16 @@ body {
   @media (prefers-reduced-motion: reduce) {
     .liquid-glass-animated {
       animation: none !important;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  @media (max-width: 640px) {
+    body {
+      background-attachment: scroll;
     }
   }
 }

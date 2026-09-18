@@ -97,7 +97,7 @@ function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight bg-gradient-to-r from-foreground via-primary to-primary/70 bg-clip-text text-transparent leading-[1.05]"
+            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight bg-gradient-to-r from-[#F8FAFC] via-[#A78BFA] to-[#22D3EE] bg-clip-text text-transparent leading-[1.05]"
           >
             Sentinel
           </motion.h1>
@@ -228,7 +228,7 @@ function Stats() {
               transition={{ delay: index * 0.08, duration: 0.5 }}
               className="text-center"
             >
-              <div className="text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-2">
+              <div className="text-4xl md:text-5xl lg:text-6xl font-bold tabular-nums bg-gradient-to-r from-[#A78BFA] via-[#7C3AED] to-[#22D3EE] bg-clip-text text-transparent mb-2">
                 {stat.value}
               </div>
               <div className="text-muted-foreground text-sm uppercase tracking-wider">{stat.label}</div>
@@ -242,7 +242,7 @@ function Stats() {
 
 function FinalCTA() {
   return (
-    <section className="py-24 px-6 bg-gradient-to-b from-background via-primary/5 to-background">
+    <section className="py-24 px-6 bg-gradient-to-b from-background via-[#7C3AED]/[0.07] to-background">
       <div className="max-w-3xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

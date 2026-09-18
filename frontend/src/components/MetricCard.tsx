@@ -37,7 +37,7 @@ export function MetricCard({
   }
   
   const trendColors = {
-    up: 'text-green-400',
+    up: 'text-emerald-400',
     down: 'text-red-400',
     neutral: 'text-muted-foreground',
   };
@@ -49,17 +49,21 @@ export function MetricCard({
   };
 
   return (
-    <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
+    <div className="sentinel-card group relative overflow-hidden p-5 transition-colors duration-200 hover:border-[rgba(167,139,250,0.32)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(167,139,250,0.4)] to-transparent"
+      />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="eyebrow">{title}</p>
+          <p className="metric-value mt-2 text-[clamp(1.5rem,2.5vw,2rem)] leading-none">
             {formattedValue}
           </p>
         </div>
         {subtitle && (
-          <div className="text-right">
-            <p className={`text-sm ${cn(trendColors[trend])}`}>
+          <div className="shrink-0 text-right">
+            <p className={`text-xs font-medium tabular-nums ${cn(trendColors[trend])}`}>
               {trendIcons[trend]} {subtitle}
             </p>
           </div>

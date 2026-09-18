@@ -71,16 +71,17 @@ export function PortfolioListPage() {
   const sharedPortfolios = (portfolios || []).filter((p: Portfolio) => !p.is_owner);
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 pb-24">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Portfolios</h1>
+            <p className="eyebrow">Sentinel · Risk intelligence</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground">Portfolios</h1>
             <p className="text-muted-foreground mt-1">
-              Manage your portfolios and analyze Sentinel
+              Portfolio → Value → Performance → Risk → Analytics
             </p>
           </div>
-          <Button onClick={() => setShowCreate(true)}>New Portfolio</Button>
+          <Button onClick={() => setShowCreate(true)} className="sm:w-auto w-full">New Portfolio</Button>
         </div>
 
         {createPortfolio.isPending && (
@@ -132,8 +133,10 @@ export function PortfolioListPage() {
         )}
 
         {ownedPortfolios.length === 0 && sharedPortfolios.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No portfolios yet</p>
+          <div className="sentinel-card-elevated text-center py-12 px-6">
+            <p className="eyebrow mb-2">Get started</p>
+            <p className="text-foreground font-medium mb-1">No portfolios yet</p>
+            <p className="text-sm text-muted-foreground mb-5">Create your first portfolio to unlock risk analytics.</p>
             <Button onClick={() => setShowCreate(true)}>Create Your First Portfolio</Button>
           </div>
         )}
@@ -141,18 +144,20 @@ export function PortfolioListPage() {
         {/* My Portfolios Section */}
         {ownedPortfolios.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold mb-1 flex items-center gap-2 text-foreground">
               My Portfolios
               <Badge variant="secondary">{ownedPortfolios.length}</Badge>
             </h2>
+            <p className="text-sm text-muted-foreground mb-4">Owned portfolios with full analytics access.</p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {ownedPortfolios.map((portfolio: Portfolio) => (
-                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-green-500/20">
+                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Card className="h-full overflow-hidden transition-colors duration-200 hover:border-[rgba(34,211,238,0.35)] hover:shadow-sentinel-pop">
+                    <div aria-hidden="true" className="h-1 bg-gradient-to-r from-[#7C3AED] via-[#A78BFA] to-[#22D3EE] opacity-80" />
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{portfolio.name}</CardTitle>
-                        <Badge variant="default" className="bg-green-500/20 text-green-400">Owner</Badge>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="truncate text-lg">{portfolio.name}</CardTitle>
+                        <Badge variant="secondary" className="border-emerald-500/25 bg-emerald-500/10 text-emerald-300">Owner</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Created {formatDate(portfolio.created_at)}
@@ -162,16 +167,16 @@ export function PortfolioListPage() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">ID</span>
-                          <span className="font-mono">{portfolio.id}</span>
+                          <span className="font-mono tabular-nums">{portfolio.id}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Updated</span>
-                          <span>{formatDate(portfolio.updated_at)}</span>
+                          <span className="tabular-nums">{formatDate(portfolio.updated_at)}</span>
                         </div>
                         {portfolio.holdings && portfolio.holdings.length > 0 && (
-                          <div className="flex justify-between pt-2 border-t">
+                          <div className="flex justify-between pt-2 border-t border-[rgba(167,139,250,0.16)]">
                             <span className="text-muted-foreground">Holdings</span>
-                            <span className="font-medium">{portfolio.holdings.length}</span>
+                            <span className="font-medium tabular-nums text-[#22D3EE]">{portfolio.holdings.length}</span>
                           </div>
                         )}
                       </div>
@@ -186,17 +191,19 @@ export function PortfolioListPage() {
         {/* Shared with Me Section */}
         {sharedPortfolios.length > 0 && (
           <div>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-semibold mb-1 flex items-center gap-2 text-foreground">
               Shared with Me
               <Badge variant="secondary">{sharedPortfolios.length}</Badge>
             </h2>
+            <p className="text-sm text-muted-foreground mb-4">Portfolios shared by other owners.</p>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {sharedPortfolios.map((portfolio: Portfolio) => (
-                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-blue-500/20">
+                <Link key={portfolio.id} href={`/portfolios/${portfolio.id}`} className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Card className="h-full overflow-hidden transition-colors duration-200 hover:border-[rgba(167,139,250,0.4)]">
+                    <div aria-hidden="true" className="h-1 bg-gradient-to-r from-[#22D3EE]/70 via-[#A78BFA]/60 to-transparent opacity-70" />
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{portfolio.name}</CardTitle>
+                      <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="truncate text-lg">{portfolio.name}</CardTitle>
                         <Badge variant={portfolio.permission === 'edit' ? 'default' : 'outline'}>
                           {portfolio.permission === 'edit' ? 'Can edit' : 'View only'}
                         </Badge>
@@ -211,16 +218,16 @@ export function PortfolioListPage() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">ID</span>
-                          <span className="font-mono">{portfolio.id}</span>
+                          <span className="font-mono tabular-nums">{portfolio.id}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Updated</span>
-                          <span>{formatDate(portfolio.updated_at)}</span>
+                          <span className="tabular-nums">{formatDate(portfolio.updated_at)}</span>
                         </div>
                         {portfolio.holdings && portfolio.holdings.length > 0 && (
-                          <div className="flex justify-between pt-2 border-t">
+                          <div className="flex justify-between pt-2 border-t border-[rgba(167,139,250,0.16)]">
                             <span className="text-muted-foreground">Holdings</span>
-                            <span className="font-medium">{portfolio.holdings.length}</span>
+                            <span className="font-medium tabular-nums text-[#22D3EE]">{portfolio.holdings.length}</span>
                           </div>
                         )}
                       </div>

@@ -64,8 +64,9 @@ function NoMarketDataEmptyState({
   canFetch: boolean;
 }) {
   return (
-    <div className="rounded-lg border bg-card p-6 text-center">
-      <p className="font-medium mb-2">{title}</p>
+    <div className="sentinel-card p-6 text-center">
+      <p className="eyebrow mb-1">Market data required</p>
+      <p className="font-semibold text-foreground mb-2">{title}</p>
       <p className="text-sm text-muted-foreground mb-4">
         This portfolio has holdings but no market price data yet. Fetch the last two
         years of prices to unlock Sentinel, correlation, and valuation.
@@ -272,13 +273,14 @@ export default function PortfolioDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">{portfolio.name}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+          <div className="min-w-0">
+            <p className="eyebrow">Portfolio · Value · Performance · Risk · Analytics</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">{portfolio.name}</h1>
               {!isOwner && (
                 <Badge variant={userPermission === 'edit' ? 'default' : 'outline'}>
                   {userPermission === 'edit' ? 'Can edit' : 'View only'}
@@ -292,7 +294,7 @@ export default function PortfolioDashboardPage() {
               Portfolio ID: {portfolio.id} • Created {formatDate(portfolio.created_at)}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {isOwner && (
               <Button variant="outline" onClick={() => setShowShareModal(true)}>
                 Share
@@ -323,7 +325,9 @@ export default function PortfolioDashboardPage() {
 
         {/* Portfolio Summary Metrics */}
         {portfolioValue && !valueLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <section aria-label="Portfolio value summary" className="mb-8">
+            <p className="eyebrow mb-3">Value · Performance</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               title="Total Value"
               value={parseFloat(portfolioValue.total_value)}
@@ -347,11 +351,14 @@ export default function PortfolioDashboardPage() {
               trend={parseFloat(portfolioValue.total_pnl_pct) >= 0 ? 'up' : 'down'}
             />
           </div>
+          </section>
         )}
 
         {/* Sentinel */}
         {riskMetrics && !metricsLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <section aria-label="Risk metrics" className="mb-8">
+            <p className="eyebrow mb-3">Risk · VaR · Volatility</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <MetricCard
               title="Annualized Volatility"
               value={parseFloat(riskMetrics.portfolio_volatility) * 100}
@@ -387,6 +394,7 @@ export default function PortfolioDashboardPage() {
               trend={parseFloat(riskMetrics.sharpe_ratio || '0') > 1 ? 'up' : 'neutral'}
             />
           </div>
+          </section>
         )}
 
         {/* Risk Score */}
@@ -494,8 +502,9 @@ export default function PortfolioDashboardPage() {
             {/* Correlation Heatmap */}
             <Card>
               <CardHeader>
-                <CardTitle>Correlation Matrix</CardTitle>
-                <CardDescription>Pearson correlation of daily returns</CardDescription>
+                <p className="eyebrow">Holdings · Positions</p>
+                <CardTitle className="mt-1">Correlation Matrix</CardTitle>
+                <CardDescription>Pearson correlation of daily returns · cyan = negative, violet = positive</CardDescription>
               </CardHeader>
               <CardContent>
                 {showNoMarketDataState ? (
@@ -521,10 +530,11 @@ export default function PortfolioDashboardPage() {
 
             {/* Monte Carlo Section */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-start justify-between gap-3">
                 <div>
-                  <CardTitle>Monte Carlo Simulation</CardTitle>
-                  <CardDescription>Forward-looking risk analysis</CardDescription>
+                  <p className="eyebrow">Forward-looking risk</p>
+                  <CardTitle className="mt-1">Monte Carlo Simulation</CardTitle>
+                  <CardDescription>GBM paths · percentiles · VaR threshold</CardDescription>
                 </div>
                 <Button 
                   variant="outline" 
@@ -589,10 +599,16 @@ export default function PortfolioDashboardPage() {
         {/* Danger Zone — owner only. Deletion is destructive and enforced
             server-side (only the owner receives 204; VIEW/EDIT get 403). */}
         {isOwner && (
-          <div className="mb-8 rounded-lg border border-destructive/40 bg-destructive/5 p-6">
-            <h2 className="text-base font-semibold text-destructive">Danger Zone</h2>
+          <section aria-label="Danger zone" className="mt-8 rounded-xl border border-red-500/25 bg-red-500/[0.04] p-6">
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-400" />
+              <h2 className="eyebrow !text-red-300">Danger Zone · Owner only</h2>
+            </div>
+            <p className="mt-2 text-sm font-medium text-foreground">
+              Deleting this portfolio is permanent.
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Deleting this portfolio is permanent. The portfolio and its associated
+              The portfolio and its associated
               data (holdings, shares) will be removed and cannot be recovered.
             </p>
             <div className="mt-4">
@@ -604,7 +620,7 @@ export default function PortfolioDashboardPage() {
                 Delete Portfolio
               </Button>
             </div>
-          </div>
+          </section>
         )}
       </div>
 
@@ -712,8 +728,9 @@ export default function PortfolioDashboardPage() {
         className="max-w-md"
       >
         <div className="p-6">
-          <h2 className="text-lg font-semibold text-destructive">Delete Portfolio</h2>
-          <p className="mt-1 text-sm font-medium">This action is permanent.</p>
+          <p className="eyebrow !text-red-300">Destructive action</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground">Delete Portfolio</h2>
+          <p className="mt-1 text-sm font-medium text-red-200">This action is permanent.</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Deleting &ldquo;{portfolio.name}&rdquo; will remove its associated
             portfolio data (holdings and shares). This cannot be undone.

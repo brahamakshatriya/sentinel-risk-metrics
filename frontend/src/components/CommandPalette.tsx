@@ -163,18 +163,18 @@ export function CommandPalette() {
                   }}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={cn(
-                    'w-full px-3 py-3 rounded-lg text-left transition-colors flex items-center justify-between gap-3',
+                    'w-full px-3 py-3 rounded-lg text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex items-center justify-between gap-3',
                     index === selectedIndex
                       ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-muted/50'
+                      : 'hover:bg-[rgba(124,58,237,0.1)]'
                   )}
                 >
-                  <div className="flex-1">
-                    <div className="font-medium">{cmd.label}</div>
-                    <div className="text-sm text-muted-foreground">{cmd.description}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{cmd.label}</div>
+                    <div className={cn('text-sm truncate', index === selectedIndex ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{cmd.description}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground uppercase">{cmd.category}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={cn('text-xs uppercase tracking-wider', index === selectedIndex ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{cmd.category}</span>
                     {cmd.shortcut && (
                       <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded text-muted-foreground">
                         {cmd.shortcut}

@@ -61,6 +61,13 @@ export default function SignInPage() {
           className="absolute inset-0"
           style={{
             background:
+              'radial-gradient(480px 240px at 82% 8%, rgba(34, 211, 238, 0.07), transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
               'radial-gradient(560px 300px at 50% 112%, hsl(var(--primary) / 0.06), transparent 70%)',
           }}
         />

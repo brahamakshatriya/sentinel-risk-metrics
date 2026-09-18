@@ -39,6 +39,22 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        sentinel: {
+          background: '#070A12',
+          surface: '#0F172A',
+          elevated: '#111827',
+          violet: '#7C3AED',
+          cyan: '#22D3EE',
+          lavender: '#A78BFA',
+          pale: '#EDE9FE',
+          success: '#10B981',
+          warning: '#F59E0B',
+          danger: '#EF4444',
+        },
+      },
+      boxShadow: {
+        'sentinel-card': '0 1px 2px rgba(2,6,16,0.5), 0 12px 32px -16px rgba(2,6,16,0.7)',
+        'sentinel-pop': '0 8px 32px -8px rgba(2,6,16,0.8), 0 0 0 1px rgba(167,139,250,0.08)',
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -17,11 +17,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : 'button';
     
     const variantStyles = {
-      default: 'bg-primary text-primary-foreground',
-      outline: 'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground',
-      destructive: 'border border-destructive text-destructive',
-      ghost: 'hover:bg-accent hover:text-accent-foreground',
-      secondary: 'border border-input bg-accent text-accent-foreground',
+      default:
+        'bg-primary text-primary-foreground shadow-[0_8px_24px_-12px_rgba(124,58,237,0.8)] hover:bg-[#6D28D9] focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground',
+      outline:
+        'border bg-white/[0.02] hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring disabled:opacity-50',
+      destructive:
+        'bg-destructive/15 border border-destructive/40 text-red-300 hover:bg-destructive/25 focus-visible:ring-destructive disabled:opacity-50',
+      ghost: 'hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring disabled:opacity-50',
+      secondary:
+        'border bg-secondary text-secondary-foreground hover:bg-accent focus-visible:ring-ring disabled:opacity-50',
     };
 
     const sizeStyles = {
@@ -32,7 +36,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
     
     const classes = cn(
-      'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium',
+      'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium',
+      'transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      'disabled:pointer-events-none',
       variantStyles[variant],
       sizeStyles[size],
       className

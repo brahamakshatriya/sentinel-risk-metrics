@@ -117,12 +117,14 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
       className="max-w-lg max-h-[85vh] overflow-y-auto"
     >
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Share "{portfolioName}"</h2>
-          <button onClick={() => { resetAddShareForm(); onClose(); }} className="text-muted-foreground hover:text-foreground" disabled={shareMutation.isPending || revokingId !== null}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="eyebrow">Portfolio sharing</p>
+          <button onClick={() => { resetAddShareForm(); onClose(); }} className="rounded-md p-1 text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={shareMutation.isPending || revokingId !== null} aria-label="Close share dialog">
             ✕
           </button>
         </div>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Share &ldquo;{portfolioName}&rdquo;</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Viewers analyze · Editors manage holdings · Only owners delete or share.</p>
 
         {/* Add Share Form */}
         {showAddShare && pendingEditEmail === null && (
@@ -146,9 +148,9 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
 
             <div className="space-y-2">
               <Label>Permission Level</Label>
-              <RadioGroup value={permission} onValueChange={(value) => setPermission(value as PermissionLevel)}>
+              <RadioGroup value={permission} onValueChange={(value) => setPermission(value as PermissionLevel)} className="gap-2">
                 <div
-                  className="flex cursor-pointer items-center space-x-4 rounded-lg p-1"
+                  className="flex cursor-pointer items-center space-x-4 rounded-xl border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(34,211,238,0.35)]"
                   onClick={() => setPermission('view')}
                 >
                   <RadioGroupItem value="view" id="view" disabled={shareMutation.isPending} />
@@ -158,7 +160,7 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
                   </Label>
                 </div>
                 <div
-                  className="flex cursor-pointer items-center space-x-4 rounded-lg p-1"
+                  className="flex cursor-pointer items-center space-x-4 rounded-xl border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(124,58,237,0.5)]"
                   onClick={() => setPermission('edit')}
                 >
                   <RadioGroupItem value="edit" id="edit" disabled={shareMutation.isPending} />
@@ -183,7 +185,7 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
 
         {/* Edit-access agreement (EDIT grants only) */}
         {showAddShare && pendingEditEmail !== null && (
-          <div className="mb-6 space-y-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="mb-6 space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
             <div>
               <h3 className="text-sm font-semibold">Grant Edit access to {pendingEditEmail}?</h3>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -245,7 +247,7 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
           ) : shares && shares.length > 0 ? (
             <div className="space-y-3">
               {shares.map((share: PortfolioShare) => (
-                <div key={share.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div key={share.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[rgba(167,139,250,0.16)] bg-white/[0.015]">
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="font-medium">{share.shared_with_email}</p>

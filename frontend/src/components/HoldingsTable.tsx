@@ -42,8 +42,8 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
 
   if (error) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
-        <p className="text-destructive mb-2">Failed to load holdings</p>
+      <div className="sentinel-card p-6 text-center" role="alert">
+        <p className="text-red-300 font-medium mb-2">Failed to load holdings</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <Button variant="outline" size="sm" onClick={() => onRetry?.()}>
           Retry
@@ -62,11 +62,11 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
   }
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="sentinel-card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b text-left text-sm font-medium text-muted-foreground">
+            <tr className="border-b border-[rgba(167,139,250,0.16)] bg-white/[0.015] text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               <th className="p-4">Symbol</th>
               <th className="p-4 text-right">Quantity</th>
               <th className="p-4 text-right">Avg Cost</th>
@@ -75,13 +75,18 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
               <th className="p-4 text-right">Market Value</th>
               <th className="p-4 text-right">P&L</th>
               <th className="p-4 text-right">P&L %</th>
-              {!readOnly && <th className="p-4"></th>}
+              {!readOnly && <th className="p-4"><span className="sr-only">Actions</span></th>}
             </tr>
           </thead>
           <tbody>
             {holdings.map((holding) => (
-              <tr key={holding.symbol} className="border-b last:border-0 hover:bg-accent/50 transition-colors">
-                <td className="p-4 font-mono font-medium">{holding.symbol}</td>
+              <tr key={holding.symbol} className="border-b border-white/5 last:border-0 hover:bg-[rgba(124,58,237,0.07)] transition-colors duration-200">
+                <td className="p-4 font-mono font-semibold text-foreground">
+                  <span className="inline-flex items-center gap-2">
+                    <span aria-hidden="true" className="h-6 w-0.5 rounded-full bg-gradient-to-b from-[#7C3AED] to-[#22D3EE]" />
+                    {holding.symbol}
+                  </span>
+                </td>
                 <td className="p-4 text-right font-mono">{formatNumber(holding.quantity)}</td>
                 <td className="p-4 text-right font-mono">{formatCurrency(holding.avg_cost)}</td>
                 <td className="p-4 text-right font-mono">{formatCurrency(holding.current_price)}</td>
@@ -118,10 +123,10 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
           </tbody>
         </table>
       </div>
-      <div className="p-4 border-t bg-muted/50 flex items-center justify-between">
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Total Portfolio Value</span>
-          <span className="font-mono font-medium">{formatCurrency(totalValue)}</span>
+      <div className="flex items-center justify-between gap-3 border-t border-[rgba(167,139,250,0.16)] bg-white/[0.015] p-4">
+        <div className="flex items-baseline gap-3 text-sm">
+          <span className="eyebrow">Total Portfolio Value</span>
+          <span className="metric-value font-mono text-lg">{formatCurrency(totalValue)}</span>
         </div>
         {lastUpdated && (
           <span className="text-xs text-muted-foreground">

@@ -19,6 +19,32 @@ import {
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatPercent, formatNumber, formatRelativeTime } from '@/lib/utils';
 
+/* Sentinel V2 chart language — single source for Monte Carlo accents:
+   violet = primary analytical · cyan = secondary/comparison ·
+   lavender = supporting · amber/red stay semantic (VaR / loss tail). */
+const CHART = {
+  grid: 'rgba(167,139,250,0.14)',
+  tick: '#94A3B8',
+  median: '#22D3EE',
+  bandOuter: 'rgba(167,139,250,0.16)',
+  bandOuterStroke: 'rgba(167,139,250,0.45)',
+  bandInnerLow: 'rgba(124,58,237,0.28)',
+  bandInnerLowStroke: 'rgba(124,58,237,0.6)',
+  bandInnerHigh: 'rgba(34,211,238,0.22)',
+  bandInnerHighStroke: 'rgba(34,211,238,0.55)',
+  varThreshold: '#F59E0B',
+  histBase: 'rgba(34,211,238,0.55)',
+  histTail: 'rgba(239,68,68,0.75)',
+  tooltipBg: 'rgba(7,10,18,0.94)',
+} as const;
+
+const chartTooltipStyle = {
+  backgroundColor: CHART.tooltipBg,
+  border: '1px solid rgba(167,139,250,0.16)',
+  borderRadius: 10,
+  fontSize: 12,
+} as const;
+
 interface MonteCarloChartProps {
   data: {
     simulated_paths_sample: number[][];
@@ -66,8 +92,8 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
 
   if (error) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
-        <p className="text-destructive mb-2">Failed to load Monte Carlo data</p>
+      <div className="sentinel-card p-6 text-center" role="alert">
+        <p className="text-red-300 font-medium mb-2">Failed to load Monte Carlo data</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <button 
           className="text-sm text-primary hover:underline"
@@ -184,9 +210,10 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
       {/* Fan Chart + Histogram */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Fan Chart */}
-        <div className="min-w-0 rounded-lg border border-border/50 bg-card">
-          <div className="border-b p-4">
-            <h4 className="font-semibold">Simulated Portfolio Paths (Fan Chart)</h4>
+        <div className="sentinel-card min-w-0 overflow-hidden">
+          <div className="border-b border-[rgba(167,139,250,0.16)] p-4">
+            <p className="eyebrow">Projection</p>
+            <h4 className="mt-1 font-semibold text-foreground">Simulated Portfolio Paths (Fan Chart)</h4>
             <p className="text-sm text-muted-foreground">
               {paths.length} paths · {days} days · 90% confidence band
             </p>
@@ -194,24 +221,30 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
           <div className="h-[300px] p-4 sm:h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={percentileData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} />
                 <XAxis
                   dataKey="day"
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 10, fill: CHART.tick }}
                   tickFormatter={(v) => `Day ${v}`}
                   interval={Math.max(1, Math.floor(days / 10))}
                   minTickGap={24}
+                  tickLine={false}
+                  axisLine={{ stroke: CHART.grid }}
                 />
                 <YAxis
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 10, fill: CHART.tick }}
                   tickFormatter={yTickFormatter}
                   width={64}
+                  tickLine={false}
+                  axisLine={false}
                 />
                 <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  labelStyle={{ color: '#F8FAFC' }}
                   formatter={(value: number, name: string) => [formatCurrency(value), name]}
                   labelFormatter={(day) => `Day ${day}`}
                 />
-                <Legend />
+                <Legend wrapperStyle={{ fontSize: 12, color: CHART.tick }} />
                 {/* Invisible stacking base at p5 (hidden from legend + tooltip) */}
                 <Area
                   type="monotone"
@@ -227,9 +260,9 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
                   type="monotone"
                   dataKey="bandOuterLow"
                   stackId="fan"
-                  stroke="rgba(59, 130, 246, 0.4)"
+                  stroke={CHART.bandOuterStroke}
                   strokeWidth={1}
-                  fill="rgba(59, 130, 246, 0.12)"
+                  fill={CHART.bandOuter}
                   name="5–25th pct"
                   tooltipType="none"
                 />
@@ -237,9 +270,9 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
                   type="monotone"
                   dataKey="bandInnerLow"
                   stackId="fan"
-                  stroke="rgba(59, 130, 246, 0.5)"
+                  stroke={CHART.bandInnerLowStroke}
                   strokeWidth={1}
-                  fill="rgba(59, 130, 246, 0.25)"
+                  fill={CHART.bandInnerLow}
                   name="25–50th pct"
                   tooltipType="none"
                 />
@@ -247,9 +280,9 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
                   type="monotone"
                   dataKey="bandInnerHigh"
                   stackId="fan"
-                  stroke="rgba(239, 68, 68, 0.5)"
+                  stroke={CHART.bandInnerHighStroke}
                   strokeWidth={1}
-                  fill="rgba(239, 68, 68, 0.22)"
+                  fill={CHART.bandInnerHigh}
                   name="50–75th pct"
                   tooltipType="none"
                 />
@@ -257,26 +290,26 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
                   type="monotone"
                   dataKey="bandOuterHigh"
                   stackId="fan"
-                  stroke="rgba(239, 68, 68, 0.4)"
+                  stroke={CHART.bandOuterStroke}
                   strokeWidth={1}
-                  fill="rgba(239, 68, 68, 0.10)"
+                  fill={CHART.bandOuter}
                   name="75–95th pct"
                   tooltipType="none"
                 />
                 <Line
                   type="monotone"
                   dataKey="p50"
-                  stroke="#22d3ee"
+                  stroke={CHART.median}
                   strokeWidth={2}
                   dot={false}
                   name="Median"
                 />
                 <ReferenceLine
                   y={varThreshold}
-                  stroke="#f97316"
+                  stroke={CHART.varThreshold}
                   strokeWidth={1}
                   strokeDasharray="5 5"
-                  label={{ value: 'VaR Threshold', position: 'insideTopRight', fontSize: 10, fill: '#f97316' }}
+                  label={{ value: 'VaR Threshold', position: 'insideTopRight', fontSize: 10, fill: CHART.varThreshold }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -284,9 +317,10 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
         </div>
 
         {/* Histogram */}
-        <div className="min-w-0 rounded-lg border border-border/50 bg-card">
-          <div className="border-b p-4">
-            <h4 className="font-semibold">Final Value Distribution</h4>
+        <div className="sentinel-card min-w-0 overflow-hidden">
+          <div className="border-b border-[rgba(167,139,250,0.16)] p-4">
+            <p className="eyebrow">Distribution</p>
+            <h4 className="mt-1 font-semibold text-foreground">Final Value Distribution</h4>
             <p className="text-sm text-muted-foreground">
               {finalValues.length} simulations · VaR threshold marked
             </p>
@@ -294,18 +328,20 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
           <div className="h-[300px] p-4 sm:h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={histogramBins} layout="vertical" margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} vertical={false} />
-                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => v.toLocaleString()} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: CHART.tick }} tickFormatter={(v) => v.toLocaleString()} tickLine={false} axisLine={{ stroke: CHART.grid }} />
                 <YAxis
                   type="category"
                   dataKey="range"
-                  tick={{ fontSize: 9 }}
+                  tick={{ fontSize: 9, fill: CHART.tick }}
                   width={88}
                   tickLine={false}
                   axisLine={false}
                   interval={2}
                 />
                 <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  labelStyle={{ color: '#F8FAFC' }}
                   formatter={(value: number, name: string) => [value.toLocaleString(), name]}
                   labelFormatter={(range) => `Final Value: ${range}`}
                 />
@@ -317,24 +353,24 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
                   {histogramBins.map((bin, index) => (
                     <Cell
                       key={index}
-                      fill={bin.isTail ? 'rgba(239, 68, 68, 0.7)' : 'rgba(59, 130, 246, 0.6)'}
+                      fill={bin.isTail ? CHART.histTail : CHART.histBase}
                     />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-border/50 bg-muted/30 p-4 text-xs">
-            <div className="flex items-center gap-1">
-              <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.7)' }}></span>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-[rgba(167,139,250,0.16)] bg-white/[0.015] p-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded" style={{ backgroundColor: CHART.histTail }}></span>
               <span>Loss Tail (VaR)</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.6)' }}></span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded" style={{ backgroundColor: CHART.histBase }}></span>
               <span>Gain/Neutral</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="h-2 w-2 rounded" style={{ backgroundColor: '#f97316' }}></span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART.varThreshold }}></span>
               <span>VaR: {formatCurrency(varThreshold)}</span>
             </div>
           </div>
@@ -343,7 +379,7 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
 
       {/* Percentile Table */}
       <div className="pt-4">
-        <h4 className="mb-3 font-semibold">Key Percentiles (Final Portfolio Value)</h4>
+        <p className="eyebrow mb-3">Key Percentiles (Final Portfolio Value)</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
           {[
             { label: '5th Percentile (VaR)', value: data.percentiles.p5, isTail: true },
@@ -355,12 +391,14 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
             <div
               key={item.label}
               className={cn(
-                'rounded-lg border p-4 text-center',
-                item.isTail ? 'border-red-500/20 bg-red-500/10' : 'border-border/50 bg-muted/30'
+                'rounded-xl border p-4 text-center transition-colors duration-200',
+                item.isTail
+                  ? 'border-red-500/25 bg-red-500/[0.07]'
+                  : 'border-[rgba(167,139,250,0.16)] bg-white/[0.015]'
               )}
             >
-              <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-              <p className="font-mono font-bold text-lg">
+              <p className="eyebrow mb-1.5">{item.label}</p>
+              <p className="font-mono font-bold text-lg tabular-nums text-foreground">
                 {formatCurrency(item.value)}
               </p>
             </div>
@@ -391,10 +429,10 @@ function MetricCard({
       ? `${value.toFixed(2)}%`
       : formatNumber(value);
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{title}</p>
-      <p className="text-2xl font-bold font-mono mt-1">{formattedValue}</p>
-      {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+    <div className="rounded-xl border border-[rgba(167,139,250,0.16)] bg-[#070A12]/40 p-4 sm:p-5">
+      <p className="eyebrow">Monte Carlo metric</p>
+      <p className="metric-value mt-1.5 font-mono text-2xl tabular-nums">{formattedValue}</p>
+      {subtitle && <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">{subtitle}</p>}
     </div>
   );
 }

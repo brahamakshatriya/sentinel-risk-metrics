@@ -41,12 +41,13 @@ export function AddHoldingForm({ isOpen, onClose, onSubmit, isPending }: AddHold
       className="max-w-md"
     >
       <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Add Holding</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" disabled={isPending}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="eyebrow">New position</p>
+          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={isPending} aria-label="Close add holding dialog">
             ✕
           </button>
         </div>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Add Holding</h2>
 
         <form onSubmit={handleSubmit(async (data) => {
           await onSubmit(data);

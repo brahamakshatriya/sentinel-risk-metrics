@@ -30,8 +30,8 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
 
   if (error) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
-        <p className="text-destructive mb-2">Failed to load correlation data</p>
+      <div className="sentinel-card p-6 text-center" role="alert">
+        <p className="text-red-300 font-medium mb-2">Failed to load correlation data</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
         <button 
           className="text-sm text-primary hover:underline"
@@ -55,20 +55,24 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
   // Get sorted symbols from matrix
   const matrixSymbols = Object.keys(correlationMatrix).sort();
 
-  // Color scale: blue (negative) -> white (0) -> red (positive)
+  // Color scale (V2): cyan (negative) → neutral navy → violet (positive).
+  // Diverging scale is preserved so correlation stays mathematically
+  // interpretable — cells are never all-purple.
   const getColor = (value: number) => {
     const abs = Math.abs(value);
-    const intensity = Math.min(abs * 2, 1); // Scale 0-1 for 0-0.5 range
-    if (value < 0) {
-      return `rgba(59, 130, 246, ${intensity})`; // blue
-    } else {
-      return `rgba(239, 68, 68, ${intensity})`; // red
+    const intensity = Math.min(0.12 + abs * 0.75, 0.88);
+    if (value < -0.02) {
+      return `rgba(34, 211, 238, ${intensity})`; // cyan
     }
+    if (value > 0.02) {
+      return `rgba(124, 58, 237, ${intensity})`; // violet
+    }
+    return 'rgba(148, 163, 184, 0.12)'; // neutral
   };
 
   const getTextColor = (value: number) => {
     const abs = Math.abs(value);
-    return abs > 0.5 ? 'text-white' : 'text-foreground';
+    return abs > 0.45 ? 'text-white' : 'text-foreground';
   };
 
   return (
@@ -81,7 +85,7 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
           Updated {formatRelativeTime(lastUpdated)}
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border border-border/50">
+      <div className="overflow-x-auto rounded-xl border border-[rgba(167,139,250,0.16)] bg-[#070A12]/50">
         <table className="w-full min-w-max border-collapse">
           <thead className="sticky top-0 z-10 bg-card">
             <tr>
@@ -100,9 +104,9 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
           </thead>
           <tbody>
             {matrixSymbols.map((rowSymbol) => (
-              <tr key={rowSymbol} className="border-t border-border/40">
+              <tr key={rowSymbol} className="border-t border-white/5">
                 <td
-                  className="sticky left-0 z-10 w-16 bg-card p-2 font-mono text-sm font-medium"
+                  className="sticky left-0 z-10 w-16 bg-[#0F172A] p-2 font-mono text-sm font-medium text-foreground"
                 >
                   <span title={rowSymbol} className="block max-w-28 truncate">
                     {rowSymbol}
@@ -114,11 +118,14 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
                     <td key={colSymbol} className="h-14 w-14 p-1 sm:h-16 sm:w-16 sm:p-1.5 lg:h-[4.5rem] lg:w-[4.5rem] lg:p-2">
                       <div
                         className={cn(
-                          'flex h-full w-full items-center justify-center rounded border border-border/50 font-mono text-[11px] sm:text-xs',
+                          'flex h-full w-full items-center justify-center rounded-lg border border-white/10 font-mono text-[11px] tabular-nums transition-all duration-200 hover:scale-[1.04] hover:border-[rgba(167,139,250,0.5)] hover:shadow-[0_0_0_1px_rgba(167,139,250,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-xs',
                           getTextColor(value)
                         )}
                         style={{ backgroundColor: getColor(value) }}
                         title={`${rowSymbol} vs ${colSymbol}: ${value.toFixed(3)}`}
+                        tabIndex={0}
+                        role="img"
+                        aria-label={`${rowSymbol} versus ${colSymbol} correlation ${value.toFixed(3)}`}
                       >
                         {value.toFixed(2)}
                       </div>
@@ -132,17 +139,17 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
       </div>
       <div className="pt-3">
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.8)' }}></span>
-            <span>Negative</span>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(34, 211, 238, 0.8)' }}></span>
+            <span>Negative (−1)</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}></span>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded border border-white/10" style={{ backgroundColor: 'rgba(148, 163, 184, 0.12)' }}></span>
             <span>Zero</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.8)' }}></span>
-            <span>Positive</span>
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(124, 58, 237, 0.85)' }}></span>
+            <span>Positive (+1)</span>
           </div>
         </div>
       </div>

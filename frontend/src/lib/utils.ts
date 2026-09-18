@@ -73,7 +73,7 @@ export function formatRelativeTime(date: string | Date): string {
 }
 
 export function getRiskColor(value: number): string {
-  if (value > 0) return 'text-green-400';
+  if (value > 0) return 'text-emerald-400';
   if (value < 0) return 'text-red-400';
   return 'text-muted-foreground';
 }

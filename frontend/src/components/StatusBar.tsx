@@ -61,7 +61,7 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
 
   const getHealthColor = (status: string) => {
     switch (status) {
-      case 'live': return 'text-green-400';
+      case 'live': return 'text-emerald-400';
       case 'checking': return 'text-amber-400';
       case 'unknown': return 'text-slate-400';
       default: return 'text-red-400';
@@ -89,9 +89,9 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
   };
 
   const getRiskScoreColor = (score: number) => {
-    if (score <= 30) return 'text-green-400 bg-green-500/10';
-    if (score <= 60) return 'text-amber-400 bg-amber-500/10';
-    return 'text-red-400 bg-red-500/10';
+    if (score <= 30) return 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/20';
+    if (score <= 60) return 'text-amber-300 bg-amber-500/10 border border-amber-500/20';
+    return 'text-red-300 bg-red-500/10 border border-red-500/20';
   };
 
   const positionClasses = position === 'top'
@@ -99,11 +99,12 @@ export function StatusBar({ position = 'bottom', className }: StatusBarProps) {
     : 'fixed bottom-0 left-0 right-0 z-40 border-t';
 
   return (
-    <LiquidGlass intensity="subtle" animated={false} highlight={true} className={cn(positionClasses, 'px-4 py-1.5', className)}>
-      <div className="flex items-center justify-between text-xs">
+    <LiquidGlass intensity="subtle" animated={false} highlight={true} className={cn(positionClasses, 'border-[rgba(167,139,250,0.16)] px-4 py-1.5', className)}>
+      <div className="flex items-center justify-between gap-3 text-xs">
         {/* Left: Health Status */}
-        <div className="flex items-center gap-2">
-          <span className={cn('font-mono font-medium', getHealthColor(healthStatus))} title={getHealthTitle(healthStatus)}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', healthStatus === 'live' ? 'bg-emerald-400' : healthStatus === 'checking' ? 'bg-amber-400' : healthStatus === 'unknown' ? 'bg-slate-400' : 'bg-red-400')} />
+          <span className={cn('font-mono font-semibold tracking-wider tabular-nums', getHealthColor(healthStatus))} title={getHealthTitle(healthStatus)}>
             {getHealthLabel(healthStatus)}
           </span>
           <span className="text-muted-foreground">API</span>
