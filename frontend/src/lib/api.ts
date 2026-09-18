@@ -65,16 +65,41 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling.
+// NOTE: the rejection stays an `Error` with the same message as before, so
+// existing callers are unaffected. We additionally attach lightweight,
+// non-enumerable-safe classification fields (status/code/isNetworkError) so
+// UI status indicators can distinguish a genuine HTTP failure from a
+// client-side blocked/indeterminate network error (e.g.
+// net::ERR_BLOCKED_BY_CLIENT, which never produces an HTTP response).
+export interface ApiRequestError extends Error {
+  /** HTTP status when the backend actually responded (e.g. 500). Absent when no response was received. */
+  status?: number;
+  /** Axios error code (e.g. 'ECONNABORTED', 'ERR_NETWORK'). */
+  code?: string;
+  /** True when the request never received an HTTP response (blocked, DNS, CORS, offline, timeout). */
+  isNetworkError?: boolean;
+}
+
+function toApiError(error: AxiosError<ApiError>): ApiRequestError {
+  const message = error.response?.data?.detail;
+  const detail = Array.isArray(message) ? message.map((m) => m.msg).join(', ') : undefined;
+  const apiError = new Error(detail || (typeof message === 'string' ? message : undefined) || error.message) as ApiRequestError;
+  if (typeof error.response?.status === 'number') {
+    apiError.status = error.response.status;
+  }
+  if (typeof error.code === 'string') {
+    apiError.code = error.code;
+  }
+  if (!error.response) {
+    apiError.isNetworkError = true;
+  }
+  return apiError;
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiError>) => {
-    const message = error.response?.data?.detail;
-    if (Array.isArray(message)) {
-      return Promise.reject(new Error(message.map((m) => m.msg).join(', ')));
-    }
-    return Promise.reject(new Error(message || error.message));
-  }
+  (error: AxiosError<ApiError>) => Promise.reject(toApiError(error))
 );
 
 // Unwrap the axios response so callers receive the actual API payload
