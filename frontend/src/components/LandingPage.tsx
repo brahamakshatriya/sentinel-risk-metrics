@@ -12,6 +12,14 @@ const VolatilitySurface = dynamic(
   { ssr: false, loading: () => <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5" /> }
 );
 
+// React Bits DotGrid — lightweight Canvas 2D interactive dot field.
+// Code-split + client-only: pulls in gsap/InertiaPlugin outside the initial
+// bundle and never touches SSR (window/Path2D guards inside).
+const DotGrid = dynamic(() => import('@/components/DotGrid').then((mod) => mod.default), {
+  ssr: false,
+  loading: () => null,
+});
+
 const features = [
   {
     icon: Activity,
@@ -69,9 +77,41 @@ function ScrollIndicator() {
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 z-0">
+      {/* Layer 0 — existing Three.js volatility surface (preserved, untouched). */}
+      <div className="absolute inset-0 z-0" aria-hidden="true">
         <VolatilitySurface />
       </div>
+
+      {/* Layer 1 — DotGrid Canvas 2D interactive field (decorative).
+          Above the WebGL canvas (which paints opaque #0a0e14) so the dots
+          stay visible, below the readability overlay + content.
+          pointer-events-none: never blocks hero buttons/links. */}
+      <div className="absolute inset-0 z-[1] pointer-events-none" aria-hidden="true">
+        <DotGrid
+          dotSize={6}
+          gap={18}
+          baseColor="#0F172A"
+          activeColor="#7C3AED"
+          proximity={120}
+          speedTrigger={100}
+          shockRadius={250}
+          shockStrength={4}
+          maxSpeed={5000}
+          resistance={750}
+          returnDuration={1.5}
+        />
+      </div>
+
+      {/* Layer 2 — readability veil so hero type stays dominant over two
+          animated backgrounds. Static gradient only, no motion. */}
+      <div
+        className="absolute inset-0 z-[2] pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background:
+            'radial-gradient(720px 420px at 50% 38%, rgba(7,10,18,0.55), rgba(7,10,18,0.15) 60%, transparent 78%)',
+        }}
+      />
       
       <div className="relative z-10 px-6 py-20 text-center">
         <motion.div
