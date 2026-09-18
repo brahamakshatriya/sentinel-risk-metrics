@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import dynamic from 'next/dynamic';
 import { BarChart2, Activity, Zap, Shield, TrendingUp, Globe, Cpu, Lock } from 'lucide-react';
 import { LiquidGlassCard } from '@/components/ui/LiquidGlass';
+import GlassSurface from '@/components/GlassSurface';
 
 const VolatilitySurface = dynamic(
   () => import('@/components/VolatilitySurface').then((mod) => mod.default),
@@ -117,6 +118,13 @@ function Hero() {
       />
       
       <div className="relative z-10 px-6 py-20 text-center">
+        {/* Localized readability quiet-zone: soft navy calm directly behind
+            the central type; radial fade (no card edges, no blur filter,
+            static only) keeps the surrounding DotGrid visible. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_62%_52%_at_50%_40%,rgba(7,10,18,0.72),rgba(7,10,18,0.25)_55%,transparent_72%)]"
+        />
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -182,20 +190,36 @@ function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.5 }}
-            className="mt-12 flex items-center justify-center gap-8 text-sm text-muted-foreground/60"
+            className="mt-12 flex justify-center px-2"
           >
-            <div className="flex items-center gap-2">
-              <Lock className="w-4 h-4" />
-              <span>SOC 2 Type II Certified</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4" />
-              <span>Global Market Data</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              <span>Sub-second Analytics</span>
-            </div>
+            <GlassSurface
+              width="auto"
+              height="auto"
+              borderRadius={18}
+              brightness={14}
+              opacity={0.6}
+              blur={8}
+              displace={0.4}
+              backgroundOpacity={0.35}
+              saturation={1.15}
+              distortionScale={-80}
+              className="sentinel-glass-strip max-w-full"
+            >
+              <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2.5 px-4 py-2 text-xs text-muted-foreground sm:text-[13px]">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-[#A78BFA]/70" strokeWidth={1.75} />
+                  <span>SOC 2 Type II Certified</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5 text-[#A78BFA]/70" strokeWidth={1.75} />
+                  <span>Global Market Data</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-3.5 w-3.5 text-[#A78BFA]/70" strokeWidth={1.75} />
+                  <span>Sub-second Analytics</span>
+                </div>
+              </div>
+            </GlassSurface>
           </motion.div>
         </motion.div>
 
@@ -319,6 +343,26 @@ function Footer() {
           </div>
           <p className="text-sm text-muted-foreground text-center md:text-right">
             Institutional-grade portfolio risk analytics. Built for precision.
+          </p>
+        </div>
+        {/* Product imprint — subtle founder signature, part of the single
+            footer area (no second footer block). */}
+        <div className="mt-10 flex flex-col items-center text-center">
+          <div
+            aria-hidden="true"
+            className="h-px w-24 bg-gradient-to-r from-transparent via-[rgba(167,139,250,0.35)] to-transparent"
+          />
+          <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground/70">
+            Sentinel
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground/60">
+            Risk Intelligence Platform
+          </p>
+          <p className="mt-4 text-[11px] text-muted-foreground/50">
+            Created by
+          </p>
+          <p className="mt-1 text-sm font-medium tracking-wide text-foreground/80">
+            Brahamakshatriya
           </p>
         </div>
       </div>
