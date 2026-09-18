@@ -72,43 +72,49 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
   };
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="p-4 border-b flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Correlation Matrix</h3>
-          <p className="text-sm text-muted-foreground">Pearson correlation of daily returns</p>
+    // Content-only: this component is embedded inside an outer Card that
+    // already provides the "Correlation Matrix" title, so no duplicate
+    // card chrome/header here.
+    <div className="min-w-0">
+      {lastUpdated && (
+        <div className="pb-3 text-right text-xs text-muted-foreground">
+          Updated {formatRelativeTime(lastUpdated)}
         </div>
-        {lastUpdated && (
-          <span className="text-xs text-muted-foreground">
-            Updated {formatRelativeTime(lastUpdated)}
-          </span>
-        )}
-      </div>
-      <div className="overflow-x-auto p-4">
-        <table className="w-auto min-w-full border-collapse">
-          <thead>
+      )}
+      <div className="overflow-x-auto rounded-lg border border-border/50">
+        <table className="w-full min-w-max border-collapse">
+          <thead className="sticky top-0 z-10 bg-card">
             <tr>
-              <th className="w-20 text-left p-2 font-medium text-muted-foreground"></th>
+              <th className="w-16 p-2 text-left font-medium text-muted-foreground"></th>
               {matrixSymbols.map((symbol) => (
-                <th key={symbol} className="w-20 text-center p-2 font-mono text-xs font-medium text-muted-foreground">
-                  {symbol}
+                <th
+                  key={symbol}
+                  className="p-2 text-center font-mono text-xs font-medium text-muted-foreground"
+                >
+                  <span title={symbol} className="block max-w-28 truncate">
+                    {symbol}
+                  </span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {matrixSymbols.map((rowSymbol) => (
-              <tr key={rowSymbol}>
-                <td className="w-20 p-2 font-mono text-sm font-medium sticky left-0 bg-card/50 border-r border-border">
-                  {rowSymbol}
+              <tr key={rowSymbol} className="border-t border-border/40">
+                <td
+                  className="sticky left-0 z-10 w-16 bg-card p-2 font-mono text-sm font-medium"
+                >
+                  <span title={rowSymbol} className="block max-w-28 truncate">
+                    {rowSymbol}
+                  </span>
                 </td>
                 {matrixSymbols.map((colSymbol) => {
                   const value = correlationMatrix[rowSymbol]?.[colSymbol] ?? 0;
                   return (
-                    <td key={colSymbol} className="w-20 h-20 p-2">
+                    <td key={colSymbol} className="h-14 w-14 p-1 sm:h-16 sm:w-16 sm:p-1.5 lg:h-[4.5rem] lg:w-[4.5rem] lg:p-2">
                       <div
                         className={cn(
-                          'w-full h-full rounded border border-border/50 flex items-center justify-center font-mono text-xs',
+                          'flex h-full w-full items-center justify-center rounded border border-border/50 font-mono text-[11px] sm:text-xs',
                           getTextColor(value)
                         )}
                         style={{ backgroundColor: getColor(value) }}
@@ -124,18 +130,18 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
           </tbody>
         </table>
       </div>
-      <div className="p-4 border-t bg-muted/30">
-        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+      <div className="pt-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.8)' }}></span>
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(59, 130, 246, 0.8)' }}></span>
             <span>Negative</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}></span>
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}></span>
             <span>Zero</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.8)' }}></span>
+            <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.8)' }}></span>
             <span>Positive</span>
           </div>
         </div>

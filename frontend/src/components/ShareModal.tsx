@@ -30,28 +30,43 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
   
   const [showAddShare, setShowAddShare] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
+  // Permission is held in explicit component state (controlled RadioGroup).
+  // A previous implementation piped the selection through
+  // register('permission').onChange({ target: { value } }), but RHF resolves
+  // the field from event.target.name — absent on that synthetic event — so
+  // the value silently never updated and every share was stored as 'view'.
+  const [permission, setPermission] = useState<PermissionLevel>('view');
+  // Pending EDIT grant awaiting explicit agreement confirmation.
+  const [pendingEditEmail, setPendingEditEmail] = useState<string | null>(null);
+  const [agreementChecked, setAgreementChecked] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<{ email: string; permission: PermissionLevel }>({
+  } = useForm<{ email: string }>({
     defaultValues: {
       email: '',
-      permission: 'view',
     },
   });
 
-  const onSubmit = async (data: { email: string; permission: PermissionLevel }) => {
+  const resetAddShareForm = () => {
+    reset();
+    setPermission('view');
+    setPendingEditEmail(null);
+    setAgreementChecked(false);
+    setShowAddShare(false);
+  };
+
+  const doShare = async (email: string, level: PermissionLevel) => {
     try {
-      await shareMutation.mutateAsync({ portfolioId, data });
+      await shareMutation.mutateAsync({ portfolioId, data: { email, permission: level } });
       toast({
         title: 'Portfolio shared',
-        description: `Shared with ${data.email} (${data.permission} access)`,
+        description: `Shared with ${email} (${level} access)`,
       });
-      reset();
-      setShowAddShare(false);
+      resetAddShareForm();
       refetch();
     } catch (error) {
       toast({
@@ -60,6 +75,16 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
         variant: 'destructive',
       });
     }
+  };
+
+  const onSubmit = async (data: { email: string }) => {
+    // EDIT grants require explicit agreement first; VIEW proceeds directly.
+    if (permission === 'edit') {
+      setAgreementChecked(false);
+      setPendingEditEmail(data.email);
+      return;
+    }
+    await doShare(data.email, 'view');
   };
 
   const handleRevoke = async (shareId: number, email: string) => {
@@ -94,13 +119,13 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Share "{portfolioName}"</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" disabled={shareMutation.isPending || revokingId !== null}>
+          <button onClick={() => { resetAddShareForm(); onClose(); }} className="text-muted-foreground hover:text-foreground" disabled={shareMutation.isPending || revokingId !== null}>
             ✕
           </button>
         </div>
 
         {/* Add Share Form */}
-        {showAddShare && (
+        {showAddShare && pendingEditEmail === null && (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mb-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
@@ -121,15 +146,21 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
 
             <div className="space-y-2">
               <Label>Permission Level</Label>
-              <RadioGroup defaultValue="view" onValueChange={(value) => register('permission').onChange({ target: { value } } as any)}>
-                <div className="flex items-center space-x-4">
+              <RadioGroup value={permission} onValueChange={(value) => setPermission(value as PermissionLevel)}>
+                <div
+                  className="flex cursor-pointer items-center space-x-4 rounded-lg p-1"
+                  onClick={() => setPermission('view')}
+                >
                   <RadioGroupItem value="view" id="view" disabled={shareMutation.isPending} />
                   <Label htmlFor="view" className="cursor-pointer">
                     <div className="text-sm font-medium">View only</div>
                     <div className="text-xs text-muted-foreground">Can view portfolio and run analyses</div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div
+                  className="flex cursor-pointer items-center space-x-4 rounded-lg p-1"
+                  onClick={() => setPermission('edit')}
+                >
                   <RadioGroupItem value="edit" id="edit" disabled={shareMutation.isPending} />
                   <Label htmlFor="edit" className="cursor-pointer">
                     <div className="text-sm font-medium">Can edit</div>
@@ -140,14 +171,59 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => { reset(); setShowAddShare(false); }} disabled={shareMutation.isPending}>
+              <Button type="button" variant="outline" onClick={resetAddShareForm} disabled={shareMutation.isPending}>
                 Cancel
               </Button>
               <Button type="submit" disabled={shareMutation.isPending}>
-                {shareMutation.isPending ? 'Sharing...' : 'Share Portfolio'}
+                {shareMutation.isPending ? 'Sharing...' : permission === 'edit' ? 'Continue' : 'Share Portfolio'}
               </Button>
             </div>
           </form>
+        )}
+
+        {/* Edit-access agreement (EDIT grants only) */}
+        {showAddShare && pendingEditEmail !== null && (
+          <div className="mb-6 space-y-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+            <div>
+              <h3 className="text-sm font-semibold">Grant Edit access to {pendingEditEmail}?</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Please review what this permission allows before continuing.
+              </p>
+            </div>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>They will be able to add, edit, and remove holdings in this portfolio.</li>
+              <li>Their changes may affect portfolio analytics and risk metrics.</li>
+              <li>They cannot delete the portfolio, manage sharing, or transfer ownership.</li>
+              <li>You can revoke this access at any time from the shares list.</li>
+            </ul>
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={agreementChecked}
+                onChange={(e) => setAgreementChecked(e.target.checked)}
+                disabled={shareMutation.isPending}
+                className="mt-0.5 h-4 w-4 accent-current"
+              />
+              <span>I understand and want to grant Edit access.</span>
+            </label>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingEditEmail(null)}
+                disabled={shareMutation.isPending}
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                onClick={() => pendingEditEmail && doShare(pendingEditEmail, 'edit')}
+                disabled={!agreementChecked || shareMutation.isPending}
+              >
+                {shareMutation.isPending ? 'Sharing...' : 'Confirm & Share'}
+              </Button>
+            </div>
+          </div>
         )}
 
         {!showAddShare && (

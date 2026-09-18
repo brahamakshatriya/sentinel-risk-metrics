@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatCurrency, formatPercent, formatDate, formatNumber, cn } from '@/lib/utils';
-import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useIngestBatch, useRiskScore, useScenario, useShares } from '@/hooks/useApi';
+import { usePortfolio, useHoldings, usePortfolioValue, useRiskMetrics, useMonteCarlo, useAddHolding, useDeleteHolding, useDeletePortfolio, useIngestBatch, useRiskScore, useScenario, useShares } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -29,6 +29,11 @@ interface MonteCarloFormData {
   horizon_days: number;
   confidence_level: number;
 }
+
+// Seconds the destructive delete button stays disabled after opening the
+// delete confirmation modal. Deletion never fires from the timer alone —
+// it only arms the button for an explicit final click.
+const DELETE_COUNTDOWN_SECONDS = 5;
 
 // Exact backend messages for "holdings exist but no PriceHistory rows"
 // (see RiskCalculator.calculate_portfolio_risk). Only these messages
@@ -93,8 +98,30 @@ export default function PortfolioDashboardPage() {
   
   const addHolding = useAddHolding();
   const deleteHolding = useDeleteHolding();
+  const deletePortfolio = useDeletePortfolio();
   const runMonteCarlo = useMonteCarlo();
   const ingestBatch = useIngestBatch();
+
+  // Danger Zone: owner-only delete with a 5-second confirmation countdown.
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteCountdown, setDeleteCountdown] = useState(DELETE_COUNTDOWN_SECONDS);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showDeleteModal) return;
+    setDeleteCountdown(DELETE_COUNTDOWN_SECONDS);
+    setDeleteError(null);
+    const timer = setInterval(() => {
+      setDeleteCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showDeleteModal]);
 
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
@@ -221,6 +248,19 @@ export default function PortfolioDashboardPage() {
   const ingestErrorMessage =
     ingestBatch.error instanceof Error ? ingestBatch.error.message : null;
 
+  const handleConfirmDeletePortfolio = async () => {
+    setDeleteError(null);
+    try {
+      // useDeletePortfolio invalidates the portfolio list cache on success,
+      // so the deleted portfolio disappears from the list immediately.
+      await deletePortfolio.mutateAsync(portfolioId);
+      setShowDeleteModal(false);
+      router.push('/');
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete portfolio');
+    }
+  };
+
   const handleRunMonteCarlo = async (data: MonteCarloFormData) => {
     await runMonteCarlo.mutateAsync({
       portfolio_id: portfolioId,
@@ -270,7 +310,7 @@ export default function PortfolioDashboardPage() {
         </div>
 
         {/* Loading Overlay */}
-        {(addHolding.isPending || deleteHolding.isPending || runMonteCarlo.isPending) && (
+        {(addHolding.isPending || deleteHolding.isPending || runMonteCarlo.isPending || deletePortfolio.isPending) && (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="bg-card p-6 rounded-lg border shadow-lg">
               <div className="flex items-center gap-3">
@@ -413,7 +453,7 @@ export default function PortfolioDashboardPage() {
           />
         </div>
 
-<div className="grid gap-6 lg:grid-cols-2 lg:grid-cols-[1fr_1.5fr]">
+<div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
           {/* Holdings Section */}
           <div className="lg:col-span-1">
             <Card>
@@ -545,6 +585,27 @@ export default function PortfolioDashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* Danger Zone — owner only. Deletion is destructive and enforced
+            server-side (only the owner receives 204; VIEW/EDIT get 403). */}
+        {isOwner && (
+          <div className="mb-8 rounded-lg border border-destructive/40 bg-destructive/5 p-6">
+            <h2 className="text-base font-semibold text-destructive">Danger Zone</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Deleting this portfolio is permanent. The portfolio and its associated
+              data (holdings, shares) will be removed and cannot be recovered.
+            </p>
+            <div className="mt-4">
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteModal(true)}
+                disabled={deletePortfolio.isPending}
+              >
+                Delete Portfolio
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -641,6 +702,58 @@ export default function PortfolioDashboardPage() {
         onClose={() => setShowShareModal(false)}
         isOwner={isOwner}
       />
+
+      {/* Delete Confirmation Modal — the 5s timer only arms the button;
+          deletion requires an explicit final click while armed. */}
+      <LiquidGlassModal
+        isOpen={showDeleteModal}
+        onClose={() => { if (!deletePortfolio.isPending) setShowDeleteModal(false); }}
+        intensity="medium"
+        className="max-w-md"
+      >
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-destructive">Delete Portfolio</h2>
+          <p className="mt-1 text-sm font-medium">This action is permanent.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Deleting &ldquo;{portfolio.name}&rdquo; will remove its associated
+            portfolio data (holdings and shares). This cannot be undone.
+          </p>
+          {deleteCountdown > 0 ? (
+            <p className="mt-4 text-center font-mono text-sm text-muted-foreground" aria-live="polite">
+              Delete unlocks in {deleteCountdown}s…
+            </p>
+          ) : (
+            <p className="mt-4 text-center font-mono text-sm text-muted-foreground" aria-live="polite">
+              Please confirm deletion below.
+            </p>
+          )}
+          {deleteError && (
+            <p className="mt-3 text-center text-sm text-red-400">{deleteError}</p>
+          )}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deletePortfolio.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDeletePortfolio}
+              disabled={deleteCountdown > 0 || deletePortfolio.isPending}
+            >
+              {deletePortfolio.isPending
+                ? 'Deleting…'
+                : deleteCountdown > 0
+                  ? `Delete Portfolio (${deleteCountdown})`
+                  : 'Delete Portfolio'}
+            </Button>
+          </div>
+        </div>
+      </LiquidGlassModal>
     </div>
   );
 }

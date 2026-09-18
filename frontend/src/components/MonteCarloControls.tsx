@@ -48,6 +48,7 @@ export function MonteCarloControls({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: params,
@@ -217,7 +218,13 @@ export function MonteCarloControls({
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setParams(prev => ({ ...prev, confidence_level: value }))}
+                    // Keep RHF and local state in sync: the preset buttons are the
+                    // only editors of confidence_level, so the submitted value
+                    // must be written back to the form explicitly.
+                    onClick={() => {
+                      setValue('confidence_level', value, { shouldDirty: true });
+                      setParams(prev => ({ ...prev, confidence_level: value }));
+                    }}
                     disabled={isRunning}
                     className={cn(
                       'flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors',

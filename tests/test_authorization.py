@@ -145,3 +145,129 @@ def test_unknown_portfolio_returns_404(seed):
     _as("owner", seed)
     resp = client.get("/api/v1/portfolios/999999")
     assert resp.status_code == 404, resp.text
+
+
+# ---------------------------------------------------------------------------
+# OWNER > EDIT > VIEW semantics: holdings CRUD, portfolio settings, shares,
+# and portfolio deletion. Backend must enforce what the UI gates.
+# ---------------------------------------------------------------------------
+
+def _add_holding_as_owner(seed, symbol="AAPL"):
+    _as("owner", seed)
+    resp = client.post(
+        f"/api/v1/portfolios/{seed['portfolio']}/holdings",
+        json={"symbol": symbol, "quantity": "10", "avg_cost": "150.00"},
+    )
+    assert resp.status_code == 201, resp.text
+
+
+def test_editor_can_update_and_delete_holdings(seed):
+    """EDIT can perform all permitted holding operations (update + delete)."""
+    _add_holding_as_owner(seed)
+    _as("editor", seed)
+    updated = client.put(
+        f"/api/v1/portfolios/{seed['portfolio']}/holdings/AAPL",
+        json={"quantity": "20"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["quantity"] == "20.000000"
+    deleted = client.delete(f"/api/v1/portfolios/{seed['portfolio']}/holdings/AAPL")
+    assert deleted.status_code == 204, deleted.text
+
+
+def test_viewer_cannot_modify_holdings(seed):
+    """VIEW receives 403 for every holding mutation (add/update/delete)."""
+    _add_holding_as_owner(seed)
+    _as("viewer", seed)
+    pid = seed["portfolio"]
+    assert client.post(
+        f"/api/v1/portfolios/{pid}/holdings",
+        json={"symbol": "MSFT", "quantity": "5", "avg_cost": "300.00"},
+    ).status_code == 403
+    assert client.put(
+        f"/api/v1/portfolios/{pid}/holdings/AAPL",
+        json={"quantity": "99"},
+    ).status_code == 403
+    assert client.delete(
+        f"/api/v1/portfolios/{pid}/holdings/AAPL"
+    ).status_code == 403
+
+
+def test_stranger_cannot_modify_holdings(seed):
+    """No share -> 403 on holding mutations (not 404 leak, not success)."""
+    _as("stranger", seed)
+    pid = seed["portfolio"]
+    assert client.post(
+        f"/api/v1/portfolios/{pid}/holdings",
+        json={"symbol": "MSFT", "quantity": "5", "avg_cost": "300.00"},
+    ).status_code == 403
+
+
+def test_only_owner_can_update_portfolio_settings(seed):
+    """Portfolio rename is owner-only: EDIT and VIEW both get 403."""
+    pid = seed["portfolio"]
+    _as("editor", seed)
+    assert client.put(f"/api/v1/portfolios/{pid}", json={"name": "Hacked"}).status_code == 403
+    _as("viewer", seed)
+    assert client.put(f"/api/v1/portfolios/{pid}", json={"name": "Hacked"}).status_code == 403
+    _as("owner", seed)
+    resp = client.put(f"/api/v1/portfolios/{pid}", json={"name": "Renamed"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "Renamed"
+
+
+def test_only_owner_can_delete_portfolio(seed):
+    """Portfolio deletion is owner-only: EDIT/VIEW/stranger get 403."""
+    pid = seed["portfolio"]
+    _as("editor", seed)
+    assert client.delete(f"/api/v1/portfolios/{pid}").status_code == 403
+    _as("viewer", seed)
+    assert client.delete(f"/api/v1/portfolios/{pid}").status_code == 403
+    _as("stranger", seed)
+    assert client.delete(f"/api/v1/portfolios/{pid}").status_code == 403
+    # Owner delete succeeds and the portfolio is really gone.
+    _as("owner", seed)
+    assert client.delete(f"/api/v1/portfolios/{pid}").status_code == 204
+    assert client.get(f"/api/v1/portfolios/{pid}").status_code == 404
+
+
+def test_editor_cannot_manage_shares(seed):
+    """EDIT must not escalate: all share-management endpoints are owner-only."""
+    pid = seed["portfolio"]
+    _as("owner", seed)
+    shares = client.get(f"/api/v1/portfolios/{pid}/shares")
+    assert shares.status_code == 200, shares.text
+    share_id = shares.json()[0]["id"]
+    _as("editor", seed)
+    assert client.post(
+        f"/api/v1/portfolios/{pid}/share",
+        json={"email": "stranger@example.com", "permission": "edit"},
+    ).status_code == 403
+    assert client.get(f"/api/v1/portfolios/{pid}/shares").status_code == 403
+    assert client.delete(f"/api/v1/portfolios/{pid}/shares/{share_id}").status_code == 403
+    _as("viewer", seed)
+    assert client.post(
+        f"/api/v1/portfolios/{pid}/share",
+        json={"email": "stranger@example.com", "permission": "view"},
+    ).status_code == 403
+
+
+def test_owner_share_update_changes_permission(seed):
+    """Re-sharing an existing recipient updates (not duplicates) permission."""
+    pid = seed["portfolio"]
+    _as("owner", seed)
+    resp = client.post(
+        f"/api/v1/portfolios/{pid}/share",
+        json={"email": "viewer@example.com", "permission": "edit"},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["permission"] == "edit"
+    # Recipient now actually holds edit access end-to-end.
+    _as("viewer", seed)
+    body = client.get(f"/api/v1/portfolios/{pid}").json()
+    assert body["permission"] == "edit"
+    add = client.post(
+        f"/api/v1/portfolios/{pid}/holdings",
+        json={"symbol": "TSLA", "quantity": "3", "avg_cost": "200.00"},
+    )
+    assert add.status_code == 201, add.text
