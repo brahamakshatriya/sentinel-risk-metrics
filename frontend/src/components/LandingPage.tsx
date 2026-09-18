@@ -77,7 +77,8 @@ function ScrollIndicator() {
 function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Layer 0 — existing Three.js volatility surface (preserved, untouched). */}
+      {/* Layer 0 — VolatilitySurface ambient layers (particle field +
+          ambient glow; wave mesh removed, DotGrid is the interactive field). */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
         <VolatilitySurface />
       </div>
@@ -85,12 +86,14 @@ function Hero() {
       {/* Layer 1 — DotGrid Canvas 2D interactive field (decorative).
           Above the WebGL canvas (which paints opaque #0a0e14) so the dots
           stay visible, below the readability overlay + content.
+          Base dots: soft lavender #A78BFA (visible on near-black);
+          interaction: vivid violet #7C3AED.
           pointer-events-none: never blocks hero buttons/links. */}
       <div className="absolute inset-0 z-[1] pointer-events-none" aria-hidden="true">
         <DotGrid
           dotSize={6}
           gap={18}
-          baseColor="#0F172A"
+          baseColor="#A78BFA"
           activeColor="#7C3AED"
           proximity={120}
           speedTrigger={100}
