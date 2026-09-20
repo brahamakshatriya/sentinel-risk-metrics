@@ -4,6 +4,16 @@ import { SignIn } from '@clerk/nextjs';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { LiquidGlassCard } from '@/components/ui/LiquidGlass';
+import dynamic from 'next/dynamic';
+
+// CRTWarp — subtle CRT-plasma terminal atmosphere behind the auth surface.
+// Client-only + code-split: three.js stays out of the initial bundle and
+// never touches SSR. The wrapper is pointer-events:none so Clerk inputs,
+// buttons, and OAuth are never blocked.
+const CRTWarp = dynamic(() => import('@/components/CRTWarp').then((mod) => mod.default), {
+  ssr: false,
+  loading: () => null,
+});
 
 const clerkAppearance = {
   elements: {
@@ -48,42 +58,38 @@ const clerkAppearance = {
 export default function SignInPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
-      {/* Sophisticated near-black environment: ambient light + faint grid, static CSS only */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(640px 320px at 50% -4%, hsl(var(--primary) / 0.13), transparent 70%)',
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(480px 240px at 82% 8%, rgba(34, 211, 238, 0.07), transparent 70%)',
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(560px 300px at 50% 112%, hsl(var(--primary) / 0.06), transparent 70%)',
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              'linear-gradient(hsl(var(--foreground) / 0.035) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px)',
-            backgroundSize: '44px 44px',
-            maskImage:
-              'radial-gradient(ellipse 72% 62% at 50% 42%, black 25%, transparent 78%)',
-            WebkitMaskImage:
-              'radial-gradient(ellipse 72% 62% at 50% 42%, black 25%, transparent 78%)',
-          }}
+      {/* Layer 0 — CRTWarp terminal atmosphere (replaces the previous static
+          ambient/grid background; single animated background system). */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
+        <CRTWarp
+          color="#7C3AED"
+          backgroundColor="#070A12"
+          speed={0.18}
+          curvature={0.16}
+          scanlineStrength={0.08}
+          scanlineFrequency={180}
+          waveAmplitude={0.16}
+          waveFrequency={2.0}
+          bloom={0.7}
+          bloomRadius={0.8}
+          noise={0.025}
+          vignette={0.45}
+          brightness={0.72}
+          pixelation={1}
+          rgbShift={0}
+          mouseReact
+          mouseStrength={0.22}
+          dpr={1}
+          fps={24}
         />
       </div>
+
+      {/* Layer 1 — readability veil: quiet dark-navy calm behind the auth
+          content. Static gradient only; CRTWarp stays visible around it. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(ellipse_70%_60%_at_50%_42%,rgba(7,10,18,0.62),rgba(7,10,18,0.22)_60%,transparent_80%)]"
+      />
 
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-10 sm:px-6">
         {/* Branding */}
