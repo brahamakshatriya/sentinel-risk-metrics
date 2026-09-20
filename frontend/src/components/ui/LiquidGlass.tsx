@@ -179,6 +179,17 @@ export function LiquidGlassModal({
   onClose: () => void;
   intensity?: 'subtle' | 'medium' | 'strong';
 }) {
+  // ——— CARD SYSTEM V2 · P0 canonical modal direction ———
+  // LiquidGlassModal is the SOLE modal shell (Share, MC config,
+  // AddHolding, Delete confirm). Foundation, verified P0:
+  // radius 12px (LiquidGlass rounded-xl) · backdrop
+  // bg-background/60 + backdrop-blur-sm (click closes) · inner p-6
+  // supplied by callers · responsive width via max-w-* overrides
+  // (default max-w-lg) · overflow via max-h-[85vh] overflow-y-auto.
+  // GLASS RULE: never place data surfaces (Recharts, canvas, tables,
+  // heatmaps) on glass — data stays opaque. Custom opaque
+  // `rounded-lg border bg-card` dialogs (e.g. PortfolioList create)
+  // are P1/P2 migrations, NOT forced here.
   if (!isOpen) return null;
 
   return (

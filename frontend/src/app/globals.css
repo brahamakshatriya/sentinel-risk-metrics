@@ -38,6 +38,24 @@
   --sentinel-lavender: #a78bfa;
   --sentinel-pale: #ede9fe;
   --sentinel-border-soft: rgba(167, 139, 250, 0.16);
+  /* ——— SENTINEL CARD SYSTEM V2 · P0 foundation tokens ———
+     Border levels: default (outer cards) · subtle (inner tiles on
+     dark inset) · interactive (hover only, never resting).
+     Semantic borders pair with matching wash backgrounds (§3.3 spec).
+     Radius: R-card 12px outer · R-micro 8px inner · R-pill 9999px.
+     Spacing roles: S-micro p-3 inner tiles · S-panel p-4 wells ·
+     S-card p-5 outer content · modal inner p-6. */
+  --sentinel-border-default: rgba(167, 139, 250, 0.16);
+  --sentinel-border-subtle: rgba(255, 255, 255, 0.05);
+  --sentinel-border-interactive: rgba(167, 139, 250, 0.32);
+  --sentinel-border-owned: rgba(34, 211, 238, 0.35);
+  --sentinel-border-danger: rgba(239, 68, 68, 0.25);
+  --sentinel-border-warning: rgba(245, 158, 11, 0.3);
+  --sentinel-border-success: rgba(16, 185, 129, 0.25);
+  --sentinel-border-info: rgba(34, 211, 238, 0.25);
+  --sentinel-radius-card: 12px;
+  --sentinel-radius-micro: 8px;
+  --sentinel-radius-pill: 9999px;
   --sentinel-success: #10b981;
   --sentinel-warning: #f59e0b;
   --sentinel-danger: #ef4444;
@@ -160,6 +178,34 @@ body {
     background: linear-gradient(180deg, hsl(var(--popover)), hsl(var(--card)));
     border-color: var(--sentinel-border-soft);
     box-shadow: var(--sentinel-shadow-pop);
+  }
+
+  /* ——— CARD SYSTEM V2 · P0 canonical state + inset surfaces ———
+     .sentinel-state: ONE container for loading/empty/error across all
+     data components (RiskMatrix, Correlation, Monte Carlo, Holdings).
+     Always Base material, p-6, centered where appropriate. Skeleton
+     blocks live INSIDE it — never a separate shell.
+     .sentinel-inset: opaque dark well for grouping controls/data inside
+     a card (summaries, readouts, table wrappers). No blur, no glass —
+     data stays readable. R-micro radius, S-panel padding. */
+  .sentinel-state {
+    @apply rounded-xl border bg-card text-card-foreground p-6;
+    border-color: var(--sentinel-border-soft);
+    box-shadow: var(--sentinel-shadow-card);
+  }
+
+  .sentinel-state-center {
+    @apply text-center;
+  }
+
+  .sentinel-inset {
+    @apply rounded-lg border p-4;
+    background: rgba(7, 10, 18, 0.5);
+    border-color: var(--sentinel-border-soft);
+  }
+
+  .sentinel-skeleton {
+    @apply animate-pulse rounded-lg bg-muted;
   }
 
   .sentinel-section-title {

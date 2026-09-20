@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { cn, formatPercent } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
 import type { HoldingRiskPoint } from '@/types/api';
 
 interface RiskMatrixProps {
@@ -194,11 +195,12 @@ export function RiskMatrix({ data, isLoading, error, className, onRetry }: RiskM
   }, [data, dimensions]);
 
   if (isLoading) {
+    // P0 canonical state: Base-card container, skeleton blocks inside.
     return (
-      <div className={cn('rounded-lg border bg-card p-6', className)}>
+      <div className={cn('sentinel-card p-6', className)}>
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted rounded w-1/4" />
-          <div className="aspect-square bg-muted rounded" />
+          <div className="h-4 bg-muted rounded-lg w-1/4" />
+          <div className="aspect-square bg-muted rounded-lg" />
         </div>
       </div>
     );
@@ -209,12 +211,9 @@ export function RiskMatrix({ data, isLoading, error, className, onRetry }: RiskM
       <div className={cn('sentinel-card p-6 text-center', className)} role="alert">
         <p className="text-red-300 font-medium mb-2">Failed to load risk matrix</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <button 
-          className="text-sm text-primary hover:underline"
-          onClick={() => onRetry?.()}
-        >
+        <Button variant="outline" size="sm" onClick={() => onRetry?.()}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }

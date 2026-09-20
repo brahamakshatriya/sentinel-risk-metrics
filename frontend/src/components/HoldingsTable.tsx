@@ -27,13 +27,14 @@ interface HoldingsTableProps {
 
 export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoading, error, lastUpdated, readOnly = false }: HoldingsTableProps) {
   if (isLoading) {
+    // P0 canonical state: Base-card container, skeleton blocks inside.
     return (
-      <div className="rounded-lg border bg-card p-6">
+      <div className="sentinel-card p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted rounded w-3/4" />
-          <div className="h-4 bg-muted rounded w-1/2" />
+          <div className="h-4 bg-muted rounded-lg w-3/4" />
+          <div className="h-4 bg-muted rounded-lg w-1/2" />
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 bg-muted rounded" />
+            <div key={i} className="h-12 bg-muted rounded-lg" />
           ))}
         </div>
       </div>
@@ -53,8 +54,9 @@ export function HoldingsTable({ holdings, totalValue, onDelete, onRetry, isLoadi
   }
 
   if (!holdings.length) {
+    // P0 canonical state: Base-card container, centered.
     return (
-      <div className="rounded-lg border bg-card p-8 text-center">
+      <div className="sentinel-card p-6 text-center">
         <p className="text-muted-foreground mb-4">No holdings in this portfolio</p>
         <p className="text-sm text-muted-foreground mb-4">Add your first holding to get started</p>
       </div>

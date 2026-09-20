@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
 import { formatPercent, formatRelativeTime } from '@/lib/utils';
 
 interface CorrelationHeatmapProps {
@@ -14,13 +15,14 @@ interface CorrelationHeatmapProps {
 
 export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, error, onRetry, lastUpdated }: CorrelationHeatmapProps) {
   if (isLoading) {
+    // P0 canonical state: Base-card container, skeleton blocks inside.
     return (
-      <div className="rounded-lg border bg-card p-6">
+      <div className="sentinel-card p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted rounded w-1/4" />
+          <div className="h-4 bg-muted rounded-lg w-1/4" />
           <div className="grid grid-cols-5 gap-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 bg-muted rounded" />
+              <div key={i} className="h-10 bg-muted rounded-lg" />
             ))}
           </div>
         </div>
@@ -33,19 +35,17 @@ export function CorrelationHeatmap({ correlationMatrix, symbols, isLoading, erro
       <div className="sentinel-card p-6 text-center" role="alert">
         <p className="text-red-300 font-medium mb-2">Failed to load correlation data</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <button 
-          className="text-sm text-primary hover:underline"
-          onClick={() => onRetry?.()}
-        >
+        <Button variant="outline" size="sm" onClick={() => onRetry?.()}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (!correlationMatrix || Object.keys(correlationMatrix).length === 0) {
+    // P0 canonical state: Base-card container, centered.
     return (
-      <div className="rounded-lg border bg-card p-8 text-center">
+      <div className="sentinel-card p-6 text-center">
         <p className="text-muted-foreground">No correlation data available</p>
         <p className="text-sm text-muted-foreground mt-2">Run Sentinel calculation to generate correlation matrix</p>
       </div>

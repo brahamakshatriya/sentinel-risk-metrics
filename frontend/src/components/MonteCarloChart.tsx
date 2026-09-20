@@ -17,7 +17,9 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { formatCurrency, formatPercent, formatNumber, formatRelativeTime } from '@/lib/utils';
+import { formatCurrency, formatPercent, formatRelativeTime } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
+import { MetricCard } from '@/components/MetricCard';
 
 /* Sentinel V2 chart language — single source for Monte Carlo accents:
    violet = primary analytical · cyan = secondary/comparison ·
@@ -79,12 +81,13 @@ interface MonteCarloChartProps {
 
 export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }: MonteCarloChartProps) {
   if (isLoading) {
+    // P0 canonical state: Base-card container, skeleton blocks inside.
     return (
-      <div className="rounded-lg border bg-card p-6">
+      <div className="sentinel-card p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted rounded w-1/4" />
-          <div className="h-64 bg-muted rounded" />
-          <div className="h-64 bg-muted rounded" />
+          <div className="h-4 bg-muted rounded-lg w-1/4" />
+          <div className="h-64 bg-muted rounded-lg" />
+          <div className="h-64 bg-muted rounded-lg" />
         </div>
       </div>
     );
@@ -95,19 +98,17 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
       <div className="sentinel-card p-6 text-center" role="alert">
         <p className="text-red-300 font-medium mb-2">Failed to load Monte Carlo data</p>
         <p className="text-sm text-muted-foreground mb-4">{error}</p>
-        <button 
-          className="text-sm text-primary hover:underline"
-          onClick={() => onRetry?.()}
-        >
+        <Button variant="outline" size="sm" onClick={() => onRetry?.()}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (!data || !data.simulated_paths_sample?.length) {
+    // P0 canonical state: Base-card container, centered.
     return (
-      <div className="rounded-lg border bg-card p-8 text-center">
+      <div className="sentinel-card p-6 text-center">
         <p className="text-muted-foreground">No Monte Carlo data available. Run a simulation first.</p>
       </div>
     );
@@ -169,35 +170,52 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
     // Content-only: embedded inside an outer Card that already provides the
     // "Monte Carlo Simulation" title, so no duplicate card chrome here.
     <div className="min-w-0">
-      {/* Metric Cards */}
+      {/* Metric Cards — canonical V2-Metric (shared MetricCard).
+          Previously a file-local duplicate with its own bg/padding/type;
+          now unified: default size would dominate this dense chart grid,
+          so analytical `micro + mono` keeps hierarchy under the outer
+          "Monte Carlo Simulation" card without a second card language.
+          All labels, values, formats, trends, and subtitles preserved. */}
       <div className="grid grid-cols-2 gap-3 pb-4 md:grid-cols-4 md:gap-4">
         <MetricCard
           title="VaR (95%)"
           value={data.var_pct}
           format="percent"
+          decimals={2}
           trend="down"
           subtitle={`${formatCurrency(data.var)}`}
+          size="micro"
+          mono
         />
         <MetricCard
           title="CVaR (95%)"
           value={data.cvar_pct}
           format="percent"
+          decimals={2}
           trend="down"
           subtitle={`${formatCurrency(data.cvar)}`}
+          size="micro"
+          mono
         />
         <MetricCard
           title="Mean Final Value"
           value={data.mean_final_value}
           format="currency"
+          decimals={2}
           trend={data.mean_final_value > data.current_value ? 'up' : 'down'}
           subtitle={`Current: ${formatCurrency(data.current_value)}`}
+          size="micro"
+          mono
         />
         <MetricCard
           title="Prob. of Loss"
           value={data.prob_loss * 100}
           format="percent"
+          decimals={2}
           trend={data.prob_loss > 0.5 ? 'down' : 'up'}
           subtitle={`Prob. Gain: ${formatPercent(data.prob_gain * 100)}`}
+          size="micro"
+          mono
         />
       </div>
 
@@ -405,34 +423,6 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// Helper MetricCard component
-function MetricCard({
-  title,
-  value,
-  format = 'number',
-  subtitle,
-  trend,
-}: {
-  title: string;
-  value: number;
-  format?: 'currency' | 'percent' | 'number';
-  subtitle?: string;
-  trend: 'up' | 'down' | 'neutral';
-}) {
-  const formattedValue = format === 'currency'
-    ? formatCurrency(value)
-    : format === 'percent'
-      ? `${value.toFixed(2)}%`
-      : formatNumber(value);
-  return (
-    <div className="rounded-xl border border-[rgba(167,139,250,0.16)] bg-[#070A12]/40 p-4 sm:p-5">
-      <p className="eyebrow">Monte Carlo metric</p>
-      <p className="metric-value mt-1.5 font-mono text-2xl tabular-nums">{formattedValue}</p>
-      {subtitle && <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">{subtitle}</p>}
     </div>
   );
 }
