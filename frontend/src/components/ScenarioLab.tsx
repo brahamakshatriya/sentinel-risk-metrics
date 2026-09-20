@@ -47,15 +47,20 @@ export function ScenarioLab({
         market_drop_pct: marketDrop,
         vol_spike_pct: volSpike,
       });
+      // Backend Decimal fields serialize as JSON strings (Pydantic v2), so
+      // coerce at the boundary — same parseFloat convention used by the
+      // portfolio-value / risk-metrics / Monte Carlo consumers. Without this,
+      // formatPct's val.toFixed() throws TypeError during render (strings have
+      // no toFixed) and Next.js shows a client-side exception page.
       setResult({
-        shockedValue: res.shocked_value,
-        valueChange: res.value_change,
-        valueChangePct: res.value_change_pct,
-        originalVar95: res.original_var_95,
-        shockedVar95: res.shocked_var_95,
-        varChangePct: res.var_change_pct,
-        originalVolatility: res.original_volatility,
-        shockedVolatility: res.shocked_volatility,
+        shockedValue: parseFloat(res.shocked_value as unknown as string),
+        valueChange: parseFloat(res.value_change as unknown as string),
+        valueChangePct: parseFloat(res.value_change_pct as unknown as string),
+        originalVar95: parseFloat(res.original_var_95 as unknown as string),
+        shockedVar95: parseFloat(res.shocked_var_95 as unknown as string),
+        varChangePct: parseFloat(res.var_change_pct as unknown as string),
+        originalVolatility: parseFloat(res.original_volatility as unknown as string),
+        shockedVolatility: parseFloat(res.shocked_volatility as unknown as string),
       });
     } catch (err) {
       console.error('Scenario analysis failed:', err);
