@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCurrency, formatPercent, cn } from '@/lib/utils';
+import { formatCurrency, formatPercent } from '@/lib/utils';
 import { useScenario } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { MetricCard } from '@/components/MetricCard';
 
 interface ScenarioLabProps {
   portfolioId: number;
@@ -141,14 +142,15 @@ export function ScenarioLab({
 
           <div className="space-y-2">
             <Label>Current Portfolio Value</Label>
-            <div className="p-3 rounded-lg bg-[#070A12]/50 border border-[rgba(167,139,250,0.16)] text-right font-mono font-semibold text-foreground tabular-nums">
+            {/* P1: readout well — canonical inner surface, typography preserved. */}
+            <div className="sentinel-inset text-right font-mono font-semibold text-foreground tabular-nums">
               {formatCurrency(currentValue)}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Current VaR (95%)</Label>
-            <div className="p-3 rounded-lg bg-[#070A12]/50 border border-[rgba(167,139,250,0.16)] text-right font-mono font-semibold text-red-300 tabular-nums">
+            <div className="sentinel-inset text-right font-mono font-semibold text-red-300 tabular-nums">
               {formatPct(currentVar95 * 100)}
             </div>
           </div>
@@ -183,48 +185,49 @@ export function ScenarioLab({
           </Button>
         </div>
 
-        {/* Results */}
+        {/* Results — P1: metrics use the canonical MetricCard (no bespoke
+            tiles); the cyan info tint is retired in favor of the V2 hierarchy.
+            Values, formatting, trend semantics, and copy preserved. */}
         {result && (
-          <div className="space-y-4 p-4 rounded-xl border border-[rgba(34,211,238,0.2)] bg-[rgba(34,211,238,0.04)]">
+          <div className="space-y-4">
             <p className="eyebrow">Scenario Results</p>
             <p className="text-sm text-muted-foreground">
               Market drop: {marketDrop}% | Volatility spike: {volSpike}%
             </p>
-            
+
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="p-4 rounded-xl bg-card border border-[rgba(167,139,250,0.16)]">
-                <div className="eyebrow">Portfolio Value</div>
-                <div className="metric-value mt-1.5 font-mono text-2xl tabular-nums">
-                  {formatCurrency(result.shockedValue)}
-                </div>
-                <div className={cn('text-sm font-medium mt-1 tabular-nums', result.valueChange >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                  {formatPct(result.valueChangePct)} ({formatCurrency(result.valueChange)})
-                </div>
-              </div>
+              <MetricCard
+                title="Portfolio Value"
+                value={result.shockedValue}
+                format="currency"
+                decimals={2}
+                mono
+                trend={result.valueChange >= 0 ? 'up' : 'down'}
+                subtitle={`${formatPct(result.valueChangePct)} (${formatCurrency(result.valueChange)})`}
+              />
 
-              <div className="p-4 rounded-xl bg-card border border-[rgba(167,139,250,0.16)]">
-                <div className="eyebrow">VaR (95%)</div>
-                <div className="metric-value mt-1.5 font-mono text-2xl tabular-nums text-red-300">
-                  {formatPct(result.shockedVar95)}
-                </div>
-                <div className={cn('text-sm font-medium mt-1 tabular-nums', result.varChangePct >= 0 ? 'text-red-400' : 'text-emerald-400')}>
-                  {formatPct(result.varChangePct)} change
-                </div>
-              </div>
+              <MetricCard
+                title="VaR (95%)"
+                value={result.shockedVar95}
+                format="percent"
+                decimals={2}
+                mono
+                trend={result.varChangePct >= 0 ? 'down' : 'up'}
+                subtitle={`${formatPct(result.varChangePct)} change`}
+              />
 
-              <div className="p-4 rounded-xl bg-card border border-[rgba(167,139,250,0.16)]">
-                <div className="eyebrow">Volatility</div>
-                <div className="metric-value mt-1.5 font-mono text-2xl tabular-nums">
-                  {(result.shockedVolatility * 100).toFixed(2)}%
-                </div>
-                <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-                  Was {(result.originalVolatility * 100).toFixed(2)}%
-                </div>
-              </div>
+              <MetricCard
+                title="Volatility"
+                value={result.shockedVolatility * 100}
+                format="percent"
+                decimals={2}
+                mono
+                subtitle={`Was ${(result.originalVolatility * 100).toFixed(2)}%`}
+              />
             </div>
 
             {/* Interpretation */}
-            <div className="p-3 rounded-lg bg-muted/50 border text-sm">
+            <div className="sentinel-inset text-sm">
               <strong>Interpretation: </strong>
               {result.valueChange < 0 ? (
                 <>
@@ -251,7 +254,7 @@ export function ScenarioLab({
 
         {/* Advanced Options */}
         {showAdvanced && (
-          <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+          <div className="sentinel-inset space-y-4">
             <h4 className="font-semibold">About This Analysis</h4>
             <ul className="text-sm text-muted-foreground space-y-2">
               <li>• <strong>Market Drop:</strong> Applies a uniform daily return shock across all holdings</li>

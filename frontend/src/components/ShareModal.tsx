@@ -149,8 +149,10 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
             <div className="space-y-2">
               <Label>Permission Level</Label>
               <RadioGroup value={permission} onValueChange={(value) => setPermission(value as PermissionLevel)} className="gap-2">
+                {/* P1: permission options use the R-micro inner-row treatment.
+                    Selectability, copy, and agreement flow preserved. */}
                 <div
-                  className="flex cursor-pointer items-center space-x-4 rounded-xl border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(34,211,238,0.35)]"
+                  className="flex cursor-pointer items-center space-x-4 rounded-lg border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(34,211,238,0.35)]"
                   onClick={() => setPermission('view')}
                 >
                   <RadioGroupItem value="view" id="view" disabled={shareMutation.isPending} />
@@ -160,7 +162,7 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
                   </Label>
                 </div>
                 <div
-                  className="flex cursor-pointer items-center space-x-4 rounded-xl border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(124,58,237,0.5)]"
+                  className="flex cursor-pointer items-center space-x-4 rounded-lg border p-3 transition-colors duration-200 focus-within:ring-2 focus-within:ring-ring border-[rgba(167,139,250,0.16)] hover:border-[rgba(124,58,237,0.5)]"
                   onClick={() => setPermission('edit')}
                 >
                   <RadioGroupItem value="edit" id="edit" disabled={shareMutation.isPending} />
@@ -183,9 +185,10 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
           </form>
         )}
 
-        {/* Edit-access agreement (EDIT grants only) */}
+        {/* Edit-access agreement (EDIT grants only) — semantic warning
+            treatment preserved; confirmation behavior untouched. */}
         {showAddShare && pendingEditEmail !== null && (
-          <div className="mb-6 space-y-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4">
+          <div className="mb-6 space-y-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] p-4">
             <div>
               <h3 className="text-sm font-semibold">Grant Edit access to {pendingEditEmail}?</h3>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -247,7 +250,8 @@ export function ShareModal({ portfolioId, portfolioName, isOpen, onClose, isOwne
           ) : shares && shares.length > 0 ? (
             <div className="space-y-3">
               {shares.map((share: PortfolioShare) => (
-                <div key={share.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[rgba(167,139,250,0.16)] bg-white/[0.015]">
+                // P1: dense inset rows — compact spacing, subtle border.
+                <div key={share.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-[rgba(167,139,250,0.16)] bg-white/[0.015]">
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="font-medium">{share.shared_with_email}</p>

@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { cn, formatCurrency, formatPercent } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Separator } from '@/components/ui/Separator';
+import { MetricCard } from '@/components/MetricCard';
 
 interface MonteCarloControlsProps {
   portfolioId: number;
@@ -86,8 +87,8 @@ export function MonteCarloControls({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-6">
-          {/* Live Summary */}
-          <div className="p-4 rounded-xl bg-[#070A12]/50 border border-[rgba(167,139,250,0.16)]">
+          {/* Live Summary — P1: canonical inner well. Badges/copy preserved. */}
+          <div className="sentinel-inset">
             <div className="eyebrow mb-2">Simulation Summary</div>
             <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
               {summaryParts.map((part, i) => (
@@ -250,20 +251,28 @@ export function MonteCarloControls({
 
           <Separator />
 
-          {/* Current Metrics Reference */}
-          <div className="p-4 rounded-xl bg-[#070A12]/50 border border-[rgba(167,139,250,0.16)]">
+          {/* Current Metrics Reference — P1: outer well is the canonical
+              inner surface; actual metrics use V2-Metric micro + mono.
+              Values, formatting, and copy preserved. */}
+          <div className="sentinel-inset">
             <div className="eyebrow mb-3">Current Portfolio Reference</div>
-            <div className="grid gap-3 md:grid-cols-3 text-sm">
-              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                <div className="eyebrow">Current Value</div>
-                <div className="font-mono font-semibold text-foreground tabular-nums mt-1">{formatCurrency(currentValue)}</div>
-              </div>
-              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                <div className="eyebrow">Current VaR (95%)</div>
-                <div className="font-mono font-semibold text-red-300 tabular-nums mt-1">
-                  {formatPercent(currentVar95 * 100)}
-                </div>
-              </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <MetricCard
+                title="Current Value"
+                value={currentValue}
+                format="currency"
+                decimals={2}
+                size="micro"
+                mono
+              />
+              <MetricCard
+                title="Current VaR (95%)"
+                value={currentVar95 * 100}
+                format="percent"
+                decimals={2}
+                size="micro"
+                mono
+              />
               <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                 <div className="eyebrow">Portfolio ID</div>
                 <div className="font-mono font-semibold text-foreground tabular-nums mt-1">{portfolioId}</div>

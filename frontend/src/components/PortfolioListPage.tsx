@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { formatDate } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
+import { LiquidGlassModal } from '@/components/ui/LiquidGlass';
 import type { Portfolio } from '@/types/api';
 
 export function PortfolioListPage() {
@@ -25,6 +26,14 @@ export function PortfolioListPage() {
   } = useForm<{ name: string }>({
     defaultValues: { name: '' },
   });
+
+  // P1: the create dialog uses the canonical LiquidGlassModal shell.
+  // The modal stays mounted while open, so reset the form on every close
+  // to preserve the previous unmount-on-close (fresh form) semantics.
+  const closeCreate = () => {
+    reset();
+    setShowCreate(false);
+  };
 
   const onSubmit = async (data: { name: string }) => {
     try {
@@ -90,47 +99,51 @@ export function PortfolioListPage() {
           </div>
         )}
 
-        {showCreate && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="w-full max-w-md mx-4 rounded-lg border bg-card p-6 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Create Portfolio</h2>
-                <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
-                  ✕
-                </button>
+        <LiquidGlassModal
+          isOpen={showCreate}
+          onClose={closeCreate}
+          intensity="medium"
+          className="max-w-md"
+        >
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-1">
+              <p className="eyebrow">New portfolio</p>
+              <button onClick={closeCreate} className="rounded-md p-1 text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Close create portfolio dialog">
+                ✕
+              </button>
+            </div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Create Portfolio</h2>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="name" className="text-sm font-medium text-foreground block mb-1">
+                  Portfolio Name
+                </label>
+                <Input
+                  id="name"
+                  {...register('name', {
+                    required: 'Name is required',
+                    minLength: { value: 2, message: 'Name must be at least 2 characters' },
+                  })}
+                  placeholder="My Portfolio"
+                  disabled={createPortfolio.isPending}
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-400">{errors.name.message}</p>
+                )}
               </div>
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="text-sm font-medium text-foreground block mb-1">
-                    Portfolio Name
-                  </label>
-                  <Input
-                    id="name"
-                    {...register('name', {
-                      required: 'Name is required',
-                      minLength: { value: 2, message: 'Name must be at least 2 characters' },
-                    })}
-                    placeholder="My Portfolio"
-                    disabled={createPortfolio.isPending}
-                  />
-                  {errors.name && (
-                    <p className="text-sm text-red-400">{errors.name.message}</p>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowCreate(false)} disabled={createPortfolio.isPending}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createPortfolio.isPending}>
-                    {createPortfolio.isPending ? 'Creating...' : 'Create'}
-                  </Button>
-                </div>
-              </form>
-            </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={closeCreate} disabled={createPortfolio.isPending}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createPortfolio.isPending}>
+                  {createPortfolio.isPending ? 'Creating...' : 'Create'}
+                </Button>
+              </div>
+            </form>
           </div>
-        )}
+        </LiquidGlassModal>
 
         {ownedPortfolios.length === 0 && sharedPortfolios.length === 0 && (
           <div className="sentinel-card-elevated text-center py-12 px-6">

@@ -16,7 +16,6 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts';
-import { cn } from '@/lib/utils';
 import { formatCurrency, formatPercent, formatRelativeTime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { MetricCard } from '@/components/MetricCard';
@@ -395,7 +394,11 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
         </div>
       </div>
 
-      {/* Percentile Table */}
+      {/* Percentile Table — P1: canonical V2-Metric micro + mono (no
+          bespoke PercentileCard). Labels, values, and confidence context
+          preserved; the loss-tail tile keeps the approved semantic
+          danger treatment (`!` guarantees the tone wins over the base
+          card surface). */}
       <div className="pt-4">
         <p className="eyebrow mb-3">Key Percentiles (Final Portfolio Value)</p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
@@ -406,20 +409,16 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
             { label: '75th Percentile', value: data.percentiles.p75, isTail: false },
             { label: '95th Percentile', value: data.percentiles.p95, isTail: false },
           ].map((item) => (
-            <div
+            <MetricCard
               key={item.label}
-              className={cn(
-                'rounded-xl border p-4 text-center transition-colors duration-200',
-                item.isTail
-                  ? 'border-red-500/25 bg-red-500/[0.07]'
-                  : 'border-[rgba(167,139,250,0.16)] bg-white/[0.015]'
-              )}
-            >
-              <p className="eyebrow mb-1.5">{item.label}</p>
-              <p className="font-mono font-bold text-lg tabular-nums text-foreground">
-                {formatCurrency(item.value)}
-              </p>
-            </div>
+              title={item.label}
+              value={item.value}
+              format="currency"
+              decimals={2}
+              size="micro"
+              mono
+              className={item.isTail ? '!border-red-500/25 !bg-red-500/[0.07]' : undefined}
+            />
           ))}
         </div>
       </div>

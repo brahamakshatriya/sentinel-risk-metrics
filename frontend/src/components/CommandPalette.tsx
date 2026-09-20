@@ -124,7 +124,10 @@ export function CommandPalette() {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={close} />
-      <Card className="w-full max-w-2xl shadow-xl animate-in slide-in-from-top-2 duration-200">
+      {/* P1: elevated palette surface uses the canonical shadow-pop.
+          Keyboard nav, search, execution, selected/empty states, shortcuts,
+          and accessibility behavior preserved. */}
+      <Card className="w-full max-w-2xl shadow-sentinel-pop animate-in slide-in-from-top-2 duration-200">
         <div className="p-4">
           <div className="relative">
             <svg 
