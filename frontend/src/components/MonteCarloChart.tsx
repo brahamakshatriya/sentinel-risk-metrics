@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -11,14 +12,14 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  BarChart,
-  Bar,
-  Cell,
   ReferenceLine,
 } from 'recharts';
 import { formatCurrency, formatPercent, formatRelativeTime } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { MetricCard } from '@/components/MetricCard';
+import { adaptTerminalDistribution, DEFAULT_TERMINAL_BIN_COUNT } from '@/viz/adapters/terminalValue';
+import { resolveTerminalDistributionView } from '@/viz/registry';
+import { TerminalHistogram } from '@/viz/renderers/TerminalHistogram';
 
 /* Sentinel V2 chart language — single source for Monte Carlo accents:
    violet = primary analytical · cyan = secondary/comparison ·
@@ -79,6 +80,29 @@ interface MonteCarloChartProps {
 }
 
 export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }: MonteCarloChartProps) {
+  /* Phase 3A — terminal-distribution slice: canonical MC data (coerced by
+     the caller) → TerminalValueAdapter → registry-resolved histogram
+     renderer. Memoized on the canonical payload so view rendering never
+     recomputes bins; placed before the state guards so hook order is
+     stable across loading/empty/ready transitions. */
+  const distribution = useMemo(() => {
+    if (!data || !data.simulated_paths_sample?.length) return null;
+    const samplePaths = data.simulated_paths_sample;
+    const horizonDays = samplePaths[0]?.length ?? 0;
+    return adaptTerminalDistribution(
+      {
+        finalValues: samplePaths.map((p) => p[horizonDays - 1]),
+        currentValue: data.current_value,
+        var: data.var,
+      },
+      { binCount: DEFAULT_TERMINAL_BIN_COUNT }
+    );
+  }, [data]);
+  /* Registry exists internally in this phase (no switcher UI yet); with a
+     single allowed view this always resolves to the histogram definition
+     and makes any future invalid selection impossible at the call site. */
+  const distributionView = resolveTerminalDistributionView();
+
   if (isLoading) {
     // P0 canonical state: Base-card container, skeleton blocks inside.
     return (
@@ -139,31 +163,15 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
     });
   }
 
-  const finalValues = paths.map((p) => p[days - 1]);
-  const minVal = Math.min(...finalValues);
-  const maxVal = Math.max(...finalValues);
-  const binCount = 30;
-  const binWidth = (maxVal - minVal) / binCount;
-
-  const histogramBins = [];
-  for (let i = 0; i < binCount; i++) {
-    const binStart = minVal + i * binWidth;
-    const binEnd = binStart + binWidth;
-    const count = finalValues.filter((v) => v >= binStart && v < binEnd).length;
-    const isTail = binEnd <= data.current_value - data.var;
-    histogramBins.push({
-      range: `${binStart.toFixed(0)}-${binEnd.toFixed(0)}`,
-      count,
-      isTail,
-    });
-  }
-
   const varThreshold = data.current_value - data.var;
 
   // Adaptive Y-axis labels: $k shorthand only when values are large enough
   // for it to stay readable; otherwise show full dollar amounts.
+  // Magnitude gate reads the adapter's metadata so the terminal derivation
+  // lives in exactly one place (distribution is non-null here — same
+  // condition as the data guard above).
   const yTickFormatter = (v: number) =>
-    Math.abs(maxVal) >= 10000 ? `$${(v / 1000).toFixed(0)}k` : `$${Math.round(v).toLocaleString()}`;
+    Math.abs(distribution?.maxValue ?? 0) >= 10000 ? `$${(v / 1000).toFixed(0)}k` : `$${Math.round(v).toLocaleString()}`;
 
   return (
     // Content-only: embedded inside an outer Card that already provides the
@@ -333,65 +341,11 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
           </div>
         </div>
 
-        {/* Histogram */}
-        <div className="sentinel-card min-w-0 overflow-hidden">
-          <div className="border-b border-[rgba(167,139,250,0.16)] p-4">
-            <p className="eyebrow">Distribution</p>
-            <h4 className="mt-1 font-semibold text-foreground">Final Value Distribution</h4>
-            <p className="text-sm text-muted-foreground">
-              {finalValues.length} simulations · VaR threshold marked
-            </p>
-          </div>
-          <div className="h-[300px] p-4 sm:h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={histogramBins} layout="vertical" margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: CHART.tick }} tickFormatter={(v) => v.toLocaleString()} tickLine={false} axisLine={{ stroke: CHART.grid }} />
-                <YAxis
-                  type="category"
-                  dataKey="range"
-                  tick={{ fontSize: 9, fill: CHART.tick }}
-                  width={88}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={2}
-                />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  labelStyle={{ color: '#F8FAFC' }}
-                  formatter={(value: number, name: string) => [value.toLocaleString(), name]}
-                  labelFormatter={(range) => `Final Value: ${range}`}
-                />
-                <Bar
-                  dataKey="count"
-                  radius={[0, 4, 4, 0]}
-                  name="Frequency"
-                >
-                  {histogramBins.map((bin, index) => (
-                    <Cell
-                      key={index}
-                      fill={bin.isTail ? CHART.histTail : CHART.histBase}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-[rgba(167,139,250,0.16)] bg-white/[0.015] p-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded" style={{ backgroundColor: CHART.histTail }}></span>
-              <span>Loss Tail (VaR)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded" style={{ backgroundColor: CHART.histBase }}></span>
-              <span>Gain/Neutral</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: CHART.varThreshold }}></span>
-              <span>VaR: {formatCurrency(varThreshold)}</span>
-            </div>
-          </div>
-        </div>
+        {/* Terminal distribution — registry-resolved histogram renderer.
+            Fan chart above is untouched; no switcher UI in Phase 3A. */}
+        {distributionView.id === 'histogram' && distribution && (
+          <TerminalHistogram data={distribution} />
+        )}
       </div>
 
       {/* Percentile Table — P1: canonical V2-Metric micro + mono (no
