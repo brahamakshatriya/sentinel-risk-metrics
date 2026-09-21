@@ -25,6 +25,7 @@ import {
 } from '@/viz/registry';
 import { TerminalHistogram } from '@/viz/renderers/TerminalHistogram';
 import { TerminalDensity } from '@/viz/renderers/TerminalDensity';
+import { ViewSwitcher } from '@/viz/ViewSwitcher';
 
 /* Sentinel V2 chart language — single source for Monte Carlo accents:
    violet = primary analytical · cyan = secondary/comparison ·
@@ -103,15 +104,17 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
       { binCount: DEFAULT_TERMINAL_BIN_COUNT }
     );
   }, [data]);
-  /* TEMPORARY Phase-3B proof selection — NOT the future product
-     ViewSwitcher. Local typed state initialized to the registry default
-     (histogram); the permanent switcher will own this seam later. */
-  const [proofViewId, setProofViewId] = useState<TerminalDistributionViewId>(
+  /* Production view selection (Phase 3C): local typed state initialized
+     to the registry default (histogram). No persistence in this phase.
+     Switching only remounts the renderer below — the memoized
+     `distribution` object, VaR, and simulation results are untouched and
+     no fetch or recalculation occurs. */
+  const [selectedView, setSelectedView] = useState<TerminalDistributionViewId>(
     TERMINAL_DISTRIBUTION_REGISTRY.defaultViewId
   );
   /* Centralized resolution stays the authority for valid/default/renderer
      mapping; invalid ids fall back to the histogram default. */
-  const distributionView = resolveTerminalDistributionView(proofViewId);
+  const distributionView = resolveTerminalDistributionView(selectedView);
 
   if (isLoading) {
     // P0 canonical state: Base-card container, skeleton blocks inside.
@@ -242,26 +245,7 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
         </div>
       )}
 
-      {/* TEMPORARY Phase-3B proof control — NOT product UI. Exists only
-          to make the registry-selected density renderer reachable for
-          development validation; removed when the real switcher lands. */}
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-label="Temporary distribution view proof control">
-        <span className="font-mono uppercase tracking-[0.14em]">Temp 3B proof</span>
-        {TERMINAL_DISTRIBUTION_REGISTRY.viewIds.map((id) => (
-          <Button
-            key={id}
-            type="button"
-            variant={proofViewId === id ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setProofViewId(id)}
-            aria-pressed={proofViewId === id}
-          >
-            {TERMINAL_DISTRIBUTION_REGISTRY.views[id].label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Fan Chart + Histogram */}
+      {/* Fan Chart + Terminal Distribution */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Fan Chart */}
         <div className="sentinel-card min-w-0 overflow-hidden">
@@ -370,14 +354,29 @@ export function MonteCarloChart({ data, isLoading, error, onRetry, lastUpdated }
           </div>
         </div>
 
-        {/* Terminal distribution — renderer-selection boundary. The
-            resolved definition picks the renderer; no scattered view
-            checks exist elsewhere. Fan chart above is untouched. */}
-        {distributionView.rendererId === 'histogram' && distribution && (
-          <TerminalHistogram data={distribution} />
-        )}
-        {distributionView.rendererId === 'density' && distribution && (
-          <TerminalDensity data={distribution} />
+        {/* Terminal distribution — switcher + renderer-selection boundary.
+            The switcher renders only when a valid dataset exists; the
+            resolved definition picks the renderer. Fan chart above and
+            all distribution semantics below are untouched. */}
+        {distribution && (
+          <div className="min-w-0">
+            <div className="mb-3">
+              <ViewSwitcher
+                datasetKey={TERMINAL_DISTRIBUTION_REGISTRY.datasetKey}
+                views={TERMINAL_DISTRIBUTION_REGISTRY.viewIds.map(
+                  (id) => TERMINAL_DISTRIBUTION_REGISTRY.views[id]
+                )}
+                value={selectedView}
+                onChange={setSelectedView}
+              />
+            </div>
+            {distributionView.rendererId === 'histogram' && (
+              <TerminalHistogram data={distribution} />
+            )}
+            {distributionView.rendererId === 'density' && (
+              <TerminalDensity data={distribution} />
+            )}
+          </div>
         )}
       </div>
 
