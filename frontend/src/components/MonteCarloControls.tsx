@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { cn } from '@/lib/utils';
+import { cn, getRangeFillPercent } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -135,6 +135,9 @@ export function MonteCarloControls({
                 disabled={isRunning}
                 className="sentinel-range"
                 aria-label="Lookback days"
+                style={{
+                  '--sentinel-range-fill': `${getRangeFillPercent(watchedParams.lookback_days ?? params.lookback_days, 30, 2520)}%`,
+                } as React.CSSProperties}
               />
               <p className="text-xs text-muted-foreground">
                 {params.lookback_days} days ({Math.round(params.lookback_days / 252)} year{params.lookback_days !== 252 ? 's' : ''})
@@ -170,6 +173,9 @@ export function MonteCarloControls({
                 disabled={isRunning}
                 className="sentinel-range"
                 aria-label="Number of simulations"
+                style={{
+                  '--sentinel-range-fill': `${getRangeFillPercent(watchedParams.num_simulations ?? params.num_simulations, 100, 20000)}%`,
+                } as React.CSSProperties}
               />
               <p className="text-xs text-muted-foreground">
                 {params.num_simulations.toLocaleString()} simulation paths
@@ -205,6 +211,9 @@ export function MonteCarloControls({
                 disabled={isRunning}
                 className="sentinel-range"
                 aria-label="Horizon days"
+                style={{
+                  '--sentinel-range-fill': `${getRangeFillPercent(watchedParams.horizon_days ?? params.horizon_days, 1, 1260)}%`,
+                } as React.CSSProperties}
               />
               <p className="text-xs text-muted-foreground">
                 {params.horizon_days} days ({Math.round(params.horizon_days / 21)} month{params.horizon_days !== 21 ? 's' : ''})

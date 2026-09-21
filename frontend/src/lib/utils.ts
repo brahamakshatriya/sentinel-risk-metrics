@@ -77,3 +77,15 @@ export function getRiskColor(value: number): string {
   if (value < 0) return 'text-red-400';
   return 'text-muted-foreground';
 }
+
+export function getRangeFillPercent(
+  value: number | string | undefined | null,
+  min: number,
+  max: number
+): number {
+  if (max <= min) return 0;
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (typeof num !== 'number' || isNaN(num)) return 0;
+  const percentage = ((num - min) / (max - min)) * 100;
+  return Math.min(100, Math.max(0, percentage));
+}

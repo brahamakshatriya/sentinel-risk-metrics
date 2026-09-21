@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatCurrency, formatPercent } from '@/lib/utils';
+import { formatCurrency, formatPercent, getRangeFillPercent } from '@/lib/utils';
 import { useScenario } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -108,6 +108,9 @@ export function ScenarioLab({
               disabled={runScenario.isPending}
               className="sentinel-range"
               aria-label="Market drop percent"
+              style={{
+                '--sentinel-range-fill': `${getRangeFillPercent(marketDrop, -50, 0)}%`,
+              } as React.CSSProperties}
             />
           </div>
 
@@ -137,6 +140,9 @@ export function ScenarioLab({
               disabled={runScenario.isPending}
               className="sentinel-range"
               aria-label="Volatility spike percent"
+              style={{
+                '--sentinel-range-fill': `${getRangeFillPercent(volSpike, 0, 200)}%`,
+              } as React.CSSProperties}
             />
           </div>
 
