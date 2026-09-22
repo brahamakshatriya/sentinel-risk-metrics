@@ -16,6 +16,7 @@ import { MonteCarloChart } from '@/components/MonteCarloChart';
 import { AddHoldingForm } from '@/components/AddHoldingForm';
 import { RiskScore } from '@/components/RiskScore';
 import { RiskMatrix } from '@/components/RiskMatrix';
+import { PriceHistoryCard } from '@/components/PriceHistoryCard';
 import { ScenarioLab } from '@/components/ScenarioLab';
 import { MonteCarloControls } from '@/components/MonteCarloControls';
 import { ShareModal } from '@/components/ShareModal';
@@ -527,6 +528,11 @@ export default function PortfolioDashboardPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Price History (Phase 4 Bklit proof: first holding's symbol) */}
+            {holdingsForTable.length > 0 && holdingsForTable[0] && (
+              <PriceHistoryCard symbol={holdingsForTable[0].symbol} />
+            )}
 
             {/* Monte Carlo Section */}
             <Card>

@@ -5,6 +5,12 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    /* Phase 4 Bklit compat: installed Bklit source iterates Map/Set and
+       uses modern iterator helpers. Next/SWC owns transpile output via
+       browserslist; `lib` stays explicit below, so this only widens what
+       tsc accepts. */
+    "target": "es2017",
+    "downlevelIteration": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

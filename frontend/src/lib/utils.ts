@@ -1,9 +1,13 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+/* Sentinel helpers (restored verbatim after the Bklit/shadcn install
+   overwrote this file — the shadcn `cn` above is functionally identical
+   to the previous one; everything below is Sentinel's existing API). */
 
 export function formatCurrency(value: number | string, decimals = 2): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
