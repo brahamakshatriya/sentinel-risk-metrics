@@ -111,11 +111,13 @@ function resolveTimeSeriesYDomain(
 
   const { minValue, maxValue } = collectNumericExtents(data, dataKeys);
 
-  if (minValue >= 0) {
-    const top = maxValue <= 0 ? 100 : maxValue * 1.1;
-    return [0, top];
-  }
-
+  /* Phase 4C local fix: the upstream zero-anchored branch ([0, max*1.1]
+     for non-negative data) flattens genuine price movement (e.g. a
+     $230→$240 range renders nearly flat). Price series use the padded
+     data domain instead — the same convention Bklit's own candlestick
+     chart already uses (candlestick-chart.tsx) and the same branch this
+     function already applied to negative data. No normalization is
+     invented; the axis simply spans [min-pad, max+pad]. */
   const padding = (maxValue - minValue) * 0.05 || 1;
   return [minValue - padding, maxValue + padding];
 }
