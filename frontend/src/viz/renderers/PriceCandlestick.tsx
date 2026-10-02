@@ -9,6 +9,12 @@ import { YAxis } from '@/components/charts/y-axis';
 import { ChartTooltip } from '@/components/charts/tooltip/chart-tooltip';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { CanonicalPriceHistory } from '@/viz/adapters/priceHistory';
+import { PriceVolumeCompanion } from '@/viz/renderers/PriceVolumeCompanion';
+import {
+  formatVolumeCompact,
+  isFiniteVolume,
+  volumeDirection,
+} from '@/viz/volume/volumeCompanion';
 import {
   ZOOM_IN_FACTOR,
   ZOOM_OUT_FACTOR,
@@ -74,6 +80,9 @@ export function PriceCandlestick({ data }: PriceCandlestickProps) {
           high: p.high as number,
           low: p.low as number,
           close: p.close,
+          /* Volume rides along untouched (may be undefined): the volume
+             companion reads it, Bklit price geometry ignores the key. */
+          volume: p.volume,
         };
       });
     return { rows: mapped, maxHigh: max };
@@ -264,14 +273,44 @@ export function PriceCandlestick({ data }: PriceCandlestickProps) {
           />
           <ChartTooltip
             indicatorColor={PRICE_CANDLE.crosshair}
-            rows={(point) => [
-              { color: PRICE_CANDLE.positiveFill, label: 'Open', value: formatCurrency((point.open as number) ?? 0) },
-              { color: PRICE_CANDLE.positiveFill, label: 'High', value: formatCurrency((point.high as number) ?? 0) },
-              { color: PRICE_CANDLE.negativeFill, label: 'Low', value: formatCurrency((point.low as number) ?? 0) },
-              { color: PRICE_CANDLE.negativeFill, label: 'Close', value: formatCurrency((point.close as number) ?? 0) },
-            ]}
+            rows={(point) => {
+              const baseRows = [
+                { color: PRICE_CANDLE.positiveFill, label: 'Open', value: formatCurrency((point.open as number) ?? 0) },
+                { color: PRICE_CANDLE.positiveFill, label: 'High', value: formatCurrency((point.high as number) ?? 0) },
+                { color: PRICE_CANDLE.negativeFill, label: 'Low', value: formatCurrency((point.low as number) ?? 0) },
+                { color: PRICE_CANDLE.negativeFill, label: 'Close', value: formatCurrency((point.close as number) ?? 0) },
+              ];
+              /* Combined OHLCV tooltip: volume is shown only when the
+                 hovered row carries genuine finite volume — never 0-filled,
+                 never interpolated. Index-correct by construction (the
+                 point IS the visible row). */
+              const volume = point.volume as number | undefined;
+              if (!isFiniteVolume(volume)) return baseRows;
+              const direction = volumeDirection(point.open, point.close);
+              return [
+                ...baseRows,
+                {
+                  color:
+                    direction === 'up'
+                      ? PRICE_CANDLE.positiveFill
+                      : direction === 'down'
+                        ? PRICE_CANDLE.negativeFill
+                        : '#94A3B8',
+                  label: 'Volume',
+                  value: formatVolumeCompact(volume),
+                },
+              ];
+            }}
           />
         </CandlestickChart>
+      </div>
+      {/* Volume companion: same visibleRows window as the price chart, so
+         zoom/pan state can never diverge. Hides itself when the window
+         carries no genuine volume. */}
+      <div className="border-t border-[rgba(167,139,250,0.16)] px-4 pb-3 pt-2">
+        <div className="h-[84px] sm:h-[96px]">
+          <PriceVolumeCompanion rows={visibleRows} symbol={data.symbol} />
+        </div>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-[rgba(167,139,250,0.16)] bg-white/[0.015] p-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
@@ -281,6 +320,10 @@ export function PriceCandlestick({ data }: PriceCandlestickProps) {
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded" style={{ backgroundColor: PRICE_CANDLE.negativeFill }}></span>
           <span>Down (close &lt; open)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(148,163,184,0.45)' }}></span>
+          <span>Volume (reported only)</span>
         </div>
       </div>
     </div>

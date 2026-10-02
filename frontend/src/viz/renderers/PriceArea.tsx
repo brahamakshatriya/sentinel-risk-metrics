@@ -8,6 +8,7 @@ import { YAxis } from '@/components/charts/y-axis';
 import { ChartTooltip } from '@/components/charts/tooltip/chart-tooltip';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { CanonicalPriceHistory } from '@/viz/adapters/priceHistory';
+import { PriceVolumeCompanion } from '@/viz/renderers/PriceVolumeCompanion';
 
 /* Phase 4 — price-history area renderer (Bklit).
    Same canonical dataset as PriceLine (timestamp + close); the area
@@ -30,7 +31,10 @@ export function PriceArea({ data }: PriceAreaProps) {
     let max = 0;
     const mapped = data.points.map((p) => {
       if (p.close > max) max = p.close;
-      return { date: new Date(p.timestamp), close: p.close };
+      /* open/volume ride along untouched for the volume companion;
+         the Area series reads only `close`, so the price Y-domain and
+         decimation (both keyed on dataKey="close") cannot be distorted. */
+      return { date: new Date(p.timestamp), close: p.close, open: p.open, volume: p.volume };
     });
     return { rows: mapped, maxClose: max };
   }, [data]);
@@ -78,10 +82,21 @@ export function PriceArea({ data }: PriceAreaProps) {
           />
         </AreaChart>
       </div>
+      {/* Volume companion over the same full-history rows (Area has no
+         viewport, so full = full and alignment is trivially exact). */}
+      <div className="border-t border-[rgba(167,139,250,0.16)] px-4 pb-3 pt-2">
+        <div className="h-[84px] sm:h-[96px]">
+          <PriceVolumeCompanion rows={rows} symbol={data.symbol} />
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-[rgba(167,139,250,0.16)] bg-white/[0.015] p-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded" style={{ backgroundColor: PRICE_AREA.stroke }}></span>
           <span>Close · daily bars, gaps shown as gaps</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded" style={{ backgroundColor: 'rgba(148,163,184,0.45)' }}></span>
+          <span>Volume (reported only)</span>
         </div>
       </div>
     </div>
