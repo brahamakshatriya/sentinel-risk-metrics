@@ -33,10 +33,68 @@ class HoldingCreate(BaseModel):
     def symbol_upper(cls, v):
         return v.upper()
 
+    @validator("quantity", pre=True)
+    def quantity_finite(cls, v):
+        # Pre-type check: reject NaN/Infinity before Decimal conversion
+        # so they surface as clean 422s instead of arithmetic errors.
+        from app.security.financial_bounds import check_quantity
+        check_quantity(v)
+        return v
+
+    @validator("quantity")
+    def quantity_bounds(cls, v):
+        from app.security.financial_bounds import check_quantity
+        check_quantity(v)
+        return v
+
+    @validator("avg_cost", pre=True)
+    def avg_cost_finite(cls, v):
+        from app.security.financial_bounds import check_avg_cost
+        check_avg_cost(v)
+        return v
+
+    @validator("avg_cost")
+    def avg_cost_bounds(cls, v):
+        from app.security.financial_bounds import check_avg_cost
+        check_avg_cost(v)
+        return v
+
 
 class HoldingUpdate(BaseModel):
     quantity: Optional[Decimal] = Field(None, gt=0)
     avg_cost: Optional[Decimal] = Field(None, ge=0)
+
+    @validator("quantity", pre=True)
+    def quantity_finite(cls, v):
+        if v is None:
+            return v
+        from app.security.financial_bounds import check_quantity
+        check_quantity(v)
+        return v
+
+    @validator("quantity")
+    def quantity_bounds(cls, v):
+        if v is None:
+            return v
+        from app.security.financial_bounds import check_quantity
+        check_quantity(v)
+        return v
+
+    @validator("avg_cost", pre=True)
+    def avg_cost_finite(cls, v):
+        if v is None:
+            return v
+        from app.security.financial_bounds import check_avg_cost
+        check_avg_cost(v)
+        return v
+
+    @validator("avg_cost")
+    def avg_cost_bounds(cls, v):
+        if v is None:
+            return v
+        from app.security.financial_bounds import check_avg_cost
+        check_avg_cost(v)
+        return v
 
 
 class HoldingResponse(HoldingCreate):

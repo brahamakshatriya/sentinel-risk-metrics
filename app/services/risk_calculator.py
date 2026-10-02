@@ -40,29 +40,39 @@ class RiskCalculator:
     ) -> Dict[str, pd.Series]:
         """
         Fetch price data for multiple symbols and return as dict of price Series.
-        
+
+        S3 N+1 fix: single batched query (was one round-trip per symbol).
+        Identical data and per-symbol date-ascending order; only the
+        round-trip count changes.
+
         Args:
             symbols: List of ticker symbols
             start_date: Start date for data
             end_date: End date for data
-            
+
         Returns:
             Dict mapping symbol to price Series (indexed by date)
         """
+        if not symbols:
+            return {}
+        rows = self.db.query(
+            PriceHistory.symbol, PriceHistory.date, PriceHistory.close
+        ).filter(
+            PriceHistory.symbol.in_(symbols),
+            PriceHistory.date >= start_date,
+            PriceHistory.date <= end_date
+        ).order_by(PriceHistory.symbol.asc(), PriceHistory.date.asc()).all()
+
+        grouped: Dict[str, list] = {}
+        for symbol, day, close in rows:
+            grouped.setdefault(symbol, []).append((day, float(close)))
+
         prices_dict = {}
-        
-        for symbol in symbols:
-            records = self.db.query(PriceHistory.date, PriceHistory.close).filter(
-                PriceHistory.symbol == symbol,
-                PriceHistory.date >= start_date,
-                PriceHistory.date <= end_date
-            ).order_by(PriceHistory.date.asc()).all()
-            
-            if records:
-                dates = [r[0] for r in records]
-                closes = [float(r[1]) for r in records]
-                prices_dict[symbol] = pd.Series(closes, index=dates, name=symbol)
-        
+        for symbol, pairs in grouped.items():
+            dates = [p[0] for p in pairs]
+            closes = [p[1] for p in pairs]
+            prices_dict[symbol] = pd.Series(closes, index=dates, name=symbol)
+
         return prices_dict
     
     def calculate_portfolio_risk(

@@ -1,7 +1,8 @@
 import os
 import logging
+import threading
+import time
 from typing import Optional
-from functools import lru_cache
 
 import httpx
 from jose import jwt, JWTError, jwk
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models import User
+from app.security import resource_limits as limits
 
 logger = logging.getLogger(__name__)
 
@@ -18,51 +20,105 @@ CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL")
 CLERK_ISSUER = os.getenv("CLERK_ISSUER")
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 
+# Resolved once at import; tests monkeypatch module attributes directly.
+_JWKS_TTL = float(getattr(limits, "JWKS_TTL_SECONDS", 600.0))
+_JWKS_TIMEOUT = float(getattr(limits, "JWKS_TIMEOUT_SECONDS", 10.0))
+
 if not CLERK_JWKS_URL or not CLERK_ISSUER:
     logger.warning("CLERK_JWKS_URL or CLERK_ISSUER not set - authentication will not work")
 
 security = HTTPBearer(auto_error=False)
 
 
-@lru_cache(maxsize=1)
-def get_jwks() -> dict:
-    """Fetch and cache Clerk's JWKS (JSON Web Key Set)."""
+# --- Phase S2: bounded-TTL JWKS cache (replaces permanent lru_cache) ---------
+_jwks_cache = {"value": None, "fetched_at": 0.0}
+_jwks_lock = threading.Lock()
+
+
+def clear_jwks_cache() -> None:
+    """Reset the JWKS cache (used by tests)."""
+    with _jwks_lock:
+        _jwks_cache["value"] = None
+        _jwks_cache["fetched_at"] = 0.0
+
+
+def _fetch_jwks() -> dict:
+    """Single JWKS fetch with explicit timeout. Failures fail closed."""
     if not CLERK_JWKS_URL:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Clerk JWKS URL not configured"
         )
     try:
-        response = httpx.get(CLERK_JWKS_URL, timeout=10.0)
+        response = httpx.get(CLERK_JWKS_URL, timeout=_JWKS_TIMEOUT)
         response.raise_for_status()
         return response.json()
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to fetch JWKS: {e}")
+        logger.error(f"Failed to fetch JWKS: {type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to fetch authentication keys"
         )
 
 
+def get_jwks(force_refresh: bool = False) -> dict:
+    """Fetch and cache Clerk's JWKS with a bounded TTL (~10 minutes).
+
+    Refreshes when the cache expires or when explicitly forced (unknown
+    `kid` path). Never disables issuer/algorithm/signature validation;
+    an unknown key is never accepted merely because it was requested.
+    """
+    now = time.monotonic()
+    with _jwks_lock:
+        cached = _jwks_cache["value"]
+        age = now - _jwks_cache["fetched_at"]
+        if not force_refresh and cached is not None and age < _JWKS_TTL:
+            return cached
+        reason = "forced" if force_refresh else ("expired" if cached is not None else "cold")
+    fresh = _fetch_jwks()
+    with _jwks_lock:
+        _jwks_cache["value"] = fresh
+        _jwks_cache["fetched_at"] = time.monotonic()
+    logger.info(f"jwks_refresh reason={reason}")
+    return fresh
+
+
 def get_signing_key(token: str) -> str:
-    """Extract the signing key from JWKS based on token's kid header."""
+    """Extract the signing key from JWKS based on token's kid header.
+
+    On an unknown `kid`, performs exactly ONE forced refresh (key
+    rotation case) and retries the lookup. If the key is still unknown
+    — or the refresh itself fails — authentication fails closed.
+    """
     jwks = get_jwks()
     unverified_header = jwt.get_unverified_header(token)
     kid = unverified_header.get("kid")
-    
+
     if not kid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing key ID"
         )
-    
+
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             # python-jose 3.x exposes JWK construction via jose.jwk
             # (jwt.algorithms does not exist). Pin RS256 explicitly so
             # only RSA keys for our enforced algorithm are constructed.
             return jwk.construct(key, algorithm="RS256")
-    
+
+    # Unknown kid: exactly one refresh attempt (rotation), then fail closed.
+    try:
+        jwks = get_jwks(force_refresh=True)
+    except HTTPException:
+        logger.warning("jwks_refresh_failed during unknown-kid lookup; failing closed")
+        raise
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return jwk.construct(key, algorithm="RS256")
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unable to find matching signing key"
@@ -89,6 +145,8 @@ def verify_clerk_token(token: str) -> dict:
         return payload
     except JWTError as e:
         logger.warning(f"JWT verification failed: {e}")
+        from app.security.events import security_event
+        security_event("authentication_failure", reason="invalid_token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
@@ -154,6 +212,8 @@ async def get_current_user(
     Creates the user record lazily if it doesn't exist yet.
     """
     if not credentials:
+        from app.security.events import security_event
+        security_event("authentication_failure", reason="missing_credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",

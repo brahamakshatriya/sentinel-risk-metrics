@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, date
+import logging
+import time
 
 from app.db.database import get_db
 from app.models import Portfolio, Holding, User, PortfolioShare, PermissionLevel
@@ -21,8 +24,22 @@ from app.authorization import (
     get_portfolio_view, get_portfolio_edit, get_portfolio_owner,
     get_portfolio_access_level, AccessLevel
 )
+from app.security import resource_limits as limits
+from app.security.errors import BudgetExceededError, ComputeBusyError
+from app.security.gates import mc_gate
+from app.security.rate_limit import (
+    AUTH_MUTATION,
+    AUTH_READ,
+    AUTH_STANDARD,
+    COMPUTE,
+    SHARE_MUTATION,
+    compute_key,
+    enforce_rate_limit,
+    user_key,
+)
 
 router = APIRouter(prefix="/portfolios", tags=["portfolios"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/", response_model=PortfolioResponse, status_code=status.HTTP_201_CREATED)
@@ -32,6 +49,18 @@ def create_portfolio(
     db: Session = Depends(get_db)
 ):
     """Create a new portfolio owned by the authenticated user."""
+    enforce_rate_limit(AUTH_MUTATION, user_key(user.id, AUTH_MUTATION))
+    # S3 resource-count ceiling: bounded portfolios per user.
+    owned_count = db.query(func.count(Portfolio.id)).filter(
+        Portfolio.owner_id == user.id
+    ).scalar() or 0
+    if owned_count >= limits.MAX_PORTFOLIOS_PER_USER:
+        raise BudgetExceededError(
+            error="portfolio_limit_reached",
+            message=f"Portfolio limit reached ({limits.MAX_PORTFOLIOS_PER_USER} per user).",
+            details={"count": owned_count,
+                     "max": limits.MAX_PORTFOLIOS_PER_USER},
+        )
     p = Portfolio(name=portfolio.name.strip(), owner_id=user.id)
     db.add(p)
     db.commit()
@@ -52,6 +81,7 @@ def get_portfolio(
     Without these fields the page treats every portfolio as inaccessible,
     including ones the user owns.
     """
+    enforce_rate_limit(AUTH_READ, user_key(user.id, AUTH_READ))
     access_level = get_portfolio_access_level(user, portfolio, db)
     is_owner = access_level == AccessLevel.OWNER
     if access_level == AccessLevel.EDIT:
@@ -80,6 +110,7 @@ def list_portfolios(
     List portfolios the user owns or has been shared with.
     Returns portfolios with is_owner and permission fields.
     """
+    enforce_rate_limit(AUTH_READ, user_key(user.id, AUTH_READ))
     # Get owned portfolios
     owned = db.query(Portfolio).filter(Portfolio.owner_id == user.id).all()
     
@@ -107,10 +138,15 @@ def list_portfolios(
     
     # Create a lookup for shares
     share_by_portfolio = {s.portfolio_id: s for s in shares}
-    
+
+    # S3 N+1 fix: batch owner lookups for shared portfolios (was 1 per row).
+    owner_ids = {p.owner_id for p in shared if p.owner_id}
+    owners_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()} \
+        if owner_ids else {}
+
     for p in shared:
         share = share_by_portfolio.get(p.id)
-        owner = db.query(User).filter(User.id == p.owner_id).first() if p.owner_id else None
+        owner = owners_by_id.get(p.owner_id) if p.owner_id else None
         result.append(PortfolioListResponse(
             id=p.id,
             name=p.name,
@@ -134,6 +170,8 @@ def update_portfolio(
     db: Session = Depends(get_db)
 ):
     """Update portfolio name - owner only."""
+    user_id = portfolio.owner_id
+    enforce_rate_limit(AUTH_MUTATION, user_key(user_id, AUTH_MUTATION))
     portfolio.name = portfolio_data.name.strip()
     portfolio.updated_at = datetime.utcnow()
     db.commit()
@@ -147,6 +185,10 @@ def delete_portfolio(
     db: Session = Depends(get_db)
 ):
     """Delete portfolio - owner only."""
+    from app.security.events import security_event
+    enforce_rate_limit(AUTH_MUTATION, user_key(portfolio.owner_id, AUTH_MUTATION))
+    security_event("owner_destructive_action", action="portfolio_delete",
+                   user_id=portfolio.owner_id, portfolio_id=portfolio.id)
     db.delete(portfolio)
     db.commit()
 
@@ -156,15 +198,25 @@ def add_holding(
     portfolio_id: int,
     holding: HoldingCreate,
     portfolio: Portfolio = Depends(get_portfolio_edit),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Add holding to portfolio - requires edit access."""
+    enforce_rate_limit(AUTH_MUTATION, user_key(user.id, AUTH_MUTATION))
     existing = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == holding.symbol.upper()
     ).first()
 
     if existing:
+        # Merged quantity must respect the same finite upper bound.
+        from app.security.financial_bounds import MAX_QUANTITY
+        merged_quantity = existing.quantity + holding.quantity
+        if merged_quantity > MAX_QUANTITY:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Merged quantity would exceed maximum {MAX_QUANTITY}",
+            )
         existing.quantity += holding.quantity
         if existing.avg_cost == 0:
             existing.avg_cost = holding.avg_cost
@@ -176,6 +228,21 @@ def add_holding(
         db.refresh(existing)
         return existing
 
+    # S2 financial bound: at most MAX_HOLDINGS_PER_PORTFOLIO rows.
+    from app.security.financial_bounds import MAX_HOLDINGS_PER_PORTFOLIO
+    holding_count = db.query(func.count(Holding.id)).filter(
+        Holding.portfolio_id == portfolio_id
+    ).scalar() or 0
+    if holding_count >= MAX_HOLDINGS_PER_PORTFOLIO:
+        logger.warning(
+            "holding_rejected portfolio_id=%s count=%s reason=holdings_cap",
+            portfolio_id, holding_count,
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=f"Portfolio holdings limit reached ({MAX_HOLDINGS_PER_PORTFOLIO})",
+        )
+
     h = Holding(
         portfolio_id=portfolio_id,
         symbol=holding.symbol.upper(),
@@ -183,7 +250,33 @@ def add_holding(
         avg_cost=holding.avg_cost
     )
     db.add(h)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # S3 race: a concurrent request created the same (portfolio, symbol)
+        # first (uq_portfolio_symbol backstop). Recover by merging instead
+        # of surfacing a 500 — same outcome as a sequential retry.
+        db.rollback()
+        logger.info("holding_race duplicate %s on portfolio %s; merging",
+                    holding.symbol.upper(), portfolio_id)
+        existing = db.query(Holding).filter(
+            Holding.portfolio_id == portfolio_id,
+            Holding.symbol == holding.symbol.upper()
+        ).first()
+        if existing is None:  # pragma: no cover - defensive; constraint says it exists
+            raise
+        from app.security.financial_bounds import MAX_QUANTITY
+        merged_quantity = existing.quantity + holding.quantity
+        if merged_quantity > MAX_QUANTITY:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Merged quantity would exceed maximum {MAX_QUANTITY}",
+            )
+        existing.quantity = merged_quantity
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
     db.refresh(h)
     return h
 
@@ -191,9 +284,11 @@ def add_holding(
 @router.get("/{portfolio_id}/holdings", response_model=List[HoldingResponse])
 def get_holdings(
     portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get holdings - requires view access."""
+    enforce_rate_limit(AUTH_READ, user_key(user.id, AUTH_READ))
     return db.query(Holding).filter(Holding.portfolio_id == portfolio.id).all()
 
 
@@ -203,9 +298,11 @@ def update_holding(
     symbol: str,
     holding: HoldingUpdate,
     portfolio: Portfolio = Depends(get_portfolio_edit),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update holding - requires edit access."""
+    enforce_rate_limit(AUTH_MUTATION, user_key(user.id, AUTH_MUTATION))
     h = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == symbol.upper()
@@ -228,9 +325,11 @@ def delete_holding(
     portfolio_id: int,
     symbol: str,
     portfolio: Portfolio = Depends(get_portfolio_edit),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete holding - requires edit access."""
+    enforce_rate_limit(AUTH_MUTATION, user_key(user.id, AUTH_MUTATION))
     h = db.query(Holding).filter(
         Holding.portfolio_id == portfolio_id,
         Holding.symbol == symbol.upper()
@@ -246,26 +345,95 @@ def run_monte_carlo(
     portfolio_id: int,
     request: MonteCarloRequest,
     portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Run Monte Carlo simulation - requires view access."""
+    """Run Monte Carlo simulation - requires view access.
+
+    Order: Authentication -> Authorization (get_portfolio_view) ->
+    Resource Policy (rate limit -> admission -> concurrency) -> logic.
+    Mathematics untouched; pathological workloads rejected pre-allocation.
+    """
     # Override portfolio_id from path
     request.portfolio_id = portfolio_id
-    
-    calculator = get_risk_calculator(db)
-    result = calculator.run_monte_carlo(
-        portfolio_id=request.portfolio_id,
-        lookback_days=request.lookback_days,
-        num_simulations=request.num_simulations,
-        horizon_days=request.horizon_days,
-        confidence_level=request.confidence_level
-    )
+
+    # 1. Rate limit (isolated COMPUTE bucket: user + portfolio).
+    enforce_rate_limit(COMPUTE, compute_key(user.id, portfolio_id))
+
+    # 2. Admission control BEFORE any simulation allocation.
+    asset_count = db.query(func.count(Holding.id)).filter(
+        Holding.portfolio_id == portfolio_id
+    ).scalar() or 0
+    cells = limits.mc_cells(request.num_simulations, request.horizon_days, asset_count)
+    if cells > limits.MC_CELLS_BUDGET:
+        logger.warning(
+            "mc_rejected operation=monte_carlo portfolio_id=%s "
+            "simulations=%s horizon=%s assets=%s cells=%s budget=%s reason=budget",
+            portfolio_id, request.num_simulations, request.horizon_days,
+            asset_count, cells, limits.MC_CELLS_BUDGET,
+        )
+        raise BudgetExceededError(
+            error="compute_budget_exceeded",
+            message=(
+                f"Monte Carlo workload too large: {cells:,} cells exceeds "
+                f"budget {limits.MC_CELLS_BUDGET:,}. Reduce num_simulations, "
+                "horizon_days, or holdings."
+            ),
+            details={
+                "cells": cells,
+                "budget": limits.MC_CELLS_BUDGET,
+                "num_simulations": request.num_simulations,
+                "horizon_days": request.horizon_days,
+                "asset_count": asset_count,
+            },
+        )
+
+    # 3. Bounded concurrency (non-blocking; no unbounded queue).
+    gate_key = f"mc:user:{user.id}"
+    if not mc_gate.try_acquire(gate_key):
+        logger.warning(
+            "mc_rejected operation=monte_carlo portfolio_id=%s reason=busy",
+            portfolio_id,
+        )
+        raise ComputeBusyError(retry_after=5, operation="monte_carlo")
+
+    try:
+        started = time.monotonic()
+        calculator = get_risk_calculator(db)
+        result = calculator.run_monte_carlo(
+            portfolio_id=request.portfolio_id,
+            lookback_days=request.lookback_days,
+            num_simulations=request.num_simulations,
+            horizon_days=request.horizon_days,
+            confidence_level=request.confidence_level
+        )
+        elapsed = time.monotonic() - started
+        if elapsed > limits.MC_TIMEOUT_SECONDS:
+            # Soft budget only: numpy simulation cannot be safely cancelled
+            # mid-flight, so we log instead of faking cancellation.
+            logger.warning(
+                "mc_slow operation=monte_carlo portfolio_id=%s elapsed=%.1fs budget=%.0fs",
+                portfolio_id, elapsed, limits.MC_TIMEOUT_SECONDS,
+            )
+    finally:
+        mc_gate.release(gate_key)
     
     if not result:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
+
+    # 4. Response protection: sample paths already capped; trim further if
+    # the estimated JSON payload would exceed MC_MAX_RESPONSE_BYTES.
+    # Risk math (VaR/CVaR/percentiles) is never altered — only the
+    # visualization sample.
+    sample = result.get("simulated_paths_sample") or []
+    if sample:
+        est_bytes = len(sample) * (len(sample[0]) if sample[0] else 0) * 10
+        if est_bytes > limits.MC_MAX_RESPONSE_BYTES:
+            keep = max(1, limits.MC_MAX_RESPONSE_BYTES // (len(sample[0]) * 10))
+            result["simulated_paths_sample"] = sample[:keep]
     
     return MonteCarloResponse(
         portfolio_id=result["portfolio_id"],
@@ -295,11 +463,14 @@ def run_scenario(
     portfolio_id: int,
     request: ScenarioRequest,
     portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Run scenario analysis - requires view access."""
     # Override portfolio_id from path
     request.portfolio_id = portfolio_id
+    # Isolated COMPUTE bucket shared with Monte Carlo (expensive class).
+    enforce_rate_limit(COMPUTE, compute_key(user.id, portfolio_id))
     
     calculator = get_risk_calculator(db)
     result = calculator.run_scenario_analysis(
@@ -340,9 +511,11 @@ def get_risk_score(
     lookback_days: int = Query(default=252, ge=30, le=2520),
     confidence_level: float = Query(default=0.95, gt=0, lt=1),
     portfolio: Portfolio = Depends(get_portfolio_view),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get composite risk score - requires view access."""
+    enforce_rate_limit(AUTH_STANDARD, user_key(user.id, AUTH_STANDARD))
     calculator = get_risk_calculator(db)
     result = calculator.calculate_risk_score(
         portfolio_id=portfolio_id,
@@ -375,14 +548,18 @@ def share_portfolio(
     portfolio_id: int,
     share_data: PortfolioShareCreate,
     portfolio: Portfolio = Depends(get_portfolio_owner),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Share a portfolio with another user - owner only.
-    
+
     The target user must already have a Sentinel account (must have signed up at least once).
     Returns a clear error if the user doesn't exist.
     """
+    from app.security.events import security_event
+    enforce_rate_limit(
+        SHARE_MUTATION, f"{SHARE_MUTATION}:user:{user.id}:portfolio:{portfolio_id}")
     # Find the target user by email
     target_user = db.query(User).filter(User.email == share_data.email.lower()).first()
     if not target_user:
@@ -390,20 +567,20 @@ def share_portfolio(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with email '{share_data.email}' not found. They must sign up for Sentinel first before you can share with them."
         )
-    
+
     # Can't share with yourself
     if target_user.id == portfolio.owner_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot share portfolio with yourself (you are the owner)"
         )
-    
+
     # Check if share already exists
     existing_share = db.query(PortfolioShare).filter(
         PortfolioShare.portfolio_id == portfolio_id,
         PortfolioShare.shared_with_user_id == target_user.id
     ).first()
-    
+
     if existing_share:
         # Update existing share permission
         existing_share.permission = share_data.permission
@@ -412,6 +589,17 @@ def share_portfolio(
         db.refresh(existing_share)
         share = existing_share
     else:
+        # S3 resource-count ceiling: bounded grants per portfolio.
+        share_count = db.query(func.count(PortfolioShare.id)).filter(
+            PortfolioShare.portfolio_id == portfolio_id
+        ).scalar() or 0
+        if share_count >= limits.MAX_SHARES_PER_PORTFOLIO:
+            raise BudgetExceededError(
+                error="share_limit_reached",
+                message=f"Share limit reached ({limits.MAX_SHARES_PER_PORTFOLIO} per portfolio).",
+                details={"count": share_count,
+                         "max": limits.MAX_SHARES_PER_PORTFOLIO},
+            )
         # Create new share
         share = PortfolioShare(
             portfolio_id=portfolio_id,
@@ -420,8 +608,32 @@ def share_portfolio(
             created_by_user_id=portfolio.owner_id
         )
         db.add(share)
-        db.commit()
-        db.refresh(share)
+        try:
+            db.commit()
+        except IntegrityError:
+            # S3 race: concurrent grant for the same recipient
+            # (uq_portfolio_shared_user backstop). Recover as an update.
+            db.rollback()
+            logger.info("share_race duplicate grant on portfolio %s; updating",
+                        portfolio_id)
+            existing_share = db.query(PortfolioShare).filter(
+                PortfolioShare.portfolio_id == portfolio_id,
+                PortfolioShare.shared_with_user_id == target_user.id
+            ).first()
+            if existing_share is None:  # pragma: no cover - defensive
+                raise
+            existing_share.permission = share_data.permission
+            existing_share.created_by_user_id = portfolio.owner_id
+            db.commit()
+            db.refresh(existing_share)
+            share = existing_share
+        else:
+            db.refresh(share)
+
+    security_event("share_mutation", action="share_grant",
+                   user_id=user.id, portfolio_id=portfolio_id,
+                   shared_with_user_id=target_user.id,
+                   permission=str(share_data.permission))
     
     return PortfolioShareResponse(
         id=share.id,
@@ -437,16 +649,24 @@ def share_portfolio(
 @router.get("/{portfolio_id}/shares", response_model=List[PortfolioShareResponse])
 def list_shares(
     portfolio: Portfolio = Depends(get_portfolio_owner),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List all shares for a portfolio - owner only."""
+    enforce_rate_limit(
+        SHARE_MUTATION, f"{SHARE_MUTATION}:user:{user.id}:portfolio:{portfolio.id}")
     shares = db.query(PortfolioShare).filter(
         PortfolioShare.portfolio_id == portfolio.id
     ).all()
-    
+
+    # S3 N+1 fix: batch recipient lookups (was 1 per share row).
+    user_ids = {s.shared_with_user_id for s in shares}
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} \
+        if user_ids else {}
+
     result = []
     for share in shares:
-        shared_user = db.query(User).filter(User.id == share.shared_with_user_id).first()
+        shared_user = users_by_id.get(share.shared_with_user_id)
         result.append(PortfolioShareResponse(
             id=share.id,
             portfolio_id=share.portfolio_id,
@@ -465,16 +685,24 @@ def revoke_share(
     portfolio_id: int,
     share_id: int,
     portfolio: Portfolio = Depends(get_portfolio_owner),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Revoke a share - owner only."""
+    from app.security.events import security_event
+    enforce_rate_limit(
+        SHARE_MUTATION, f"{SHARE_MUTATION}:user:{user.id}:portfolio:{portfolio_id}")
     share = db.query(PortfolioShare).filter(
         PortfolioShare.id == share_id,
         PortfolioShare.portfolio_id == portfolio_id
     ).first()
-    
+
     if not share:
         raise HTTPException(status_code=404, detail="Share not found")
-    
+
+    revoked_user = share.shared_with_user_id
     db.delete(share)
     db.commit()
+    security_event("share_mutation", action="share_revoke",
+                   user_id=user.id, portfolio_id=portfolio_id,
+                   shared_with_user_id=revoked_user)

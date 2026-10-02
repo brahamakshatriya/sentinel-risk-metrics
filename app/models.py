@@ -109,3 +109,24 @@ class PortfolioShare(Base):
     portfolio = relationship("Portfolio", back_populates="shares")
     shared_with_user = relationship("User", foreign_keys=[shared_with_user_id], back_populates="shares")
     created_by_user = relationship("User", foreign_keys=[created_by_user_id], back_populates="created_shares")
+
+
+class IngestionQuota(Base):
+    """Phase S3 persistent business quota: per-user UTC-day ingestion usage.
+
+    One row per (user, day); symbol_days accumulates requested symbol-day
+    envelopes AFTER the Yahoo round-trip executes. Historical rows are the
+    audit trail (no cleanup job). Existing financial tables untouched.
+    """
+
+    __tablename__ = "ingestion_quotas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    day = Column(Date, nullable=False, index=True)
+    symbol_days = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "day", name="uq_quota_user_day"),
+    )

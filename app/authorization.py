@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.auth import get_current_user
 from app.models import User, Portfolio, PortfolioShare, PermissionLevel
+from app.security import resource_limits as limits
+from app.security.events import note_abuse, security_event
 
 
 class AccessLevel(str, Enum):
@@ -21,6 +23,19 @@ class AccessLevel(str, Enum):
     VIEW = "view"
     EDIT = "edit"
     OWNER = "owner"
+
+
+def _deny(status_code: int, detail: str, user: User, portfolio_id: int,
+          required: str, actual: str):
+    """Central authorization-denial point: structured event + abuse signal,
+    then the original HTTP error. Safe fields only (ids, no tokens)."""
+    security_event("authorization_denial", user_id=user.id,
+                   portfolio_id=portfolio_id, required=required, actual=actual)
+    note_abuse("repeated_403", f"user:{user.id}",
+               threshold=limits.ABUSE_REPEATED_403,
+               window_seconds=limits.ABUSE_WINDOW_SECONDS,
+               portfolio_id=portfolio_id, required=required)
+    raise HTTPException(status_code=status_code, detail=detail)
 
 
 def get_portfolio_access_level(
@@ -98,20 +113,17 @@ def require_portfolio_access(
         
         # Verify meets requirement
         if required_level == AccessLevel.OWNER and access_level != AccessLevel.OWNER:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the portfolio owner can perform this action"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "Only the portfolio owner can perform this action",
+                  user, portfolio_id, "owner", access_level.value)
         elif required_level == AccessLevel.EDIT and access_level not in (AccessLevel.EDIT, AccessLevel.OWNER):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Edit access required for this portfolio"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "Edit access required for this portfolio",
+                  user, portfolio_id, "edit", access_level.value)
         elif required_level == AccessLevel.VIEW and access_level == AccessLevel.NONE:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have access to this portfolio"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "You don't have access to this portfolio",
+                  user, portfolio_id, "view", access_level.value)
         
         return access_level
     
@@ -158,20 +170,17 @@ def get_portfolio_with_access(
         access_level = get_portfolio_access_level(user, portfolio, db)
         
         if required_level == AccessLevel.OWNER and access_level != AccessLevel.OWNER:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only the portfolio owner can perform this action"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "Only the portfolio owner can perform this action",
+                  user, portfolio_id, "owner", access_level.value)
         elif required_level == AccessLevel.EDIT and access_level not in (AccessLevel.EDIT, AccessLevel.OWNER):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Edit access required for this portfolio"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "Edit access required for this portfolio",
+                  user, portfolio_id, "edit", access_level.value)
         elif required_level == AccessLevel.VIEW and access_level == AccessLevel.NONE:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have access to this portfolio"
-            )
+            _deny(status.HTTP_403_FORBIDDEN,
+                  "You don't have access to this portfolio",
+                  user, portfolio_id, "view", access_level.value)
         
         return portfolio
     

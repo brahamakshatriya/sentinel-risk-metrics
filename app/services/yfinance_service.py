@@ -5,12 +5,61 @@ from decimal import Decimal
 from typing import List, Optional, Dict, Any
 import logging
 
+from app.security import resource_limits as limits
+from app.security.upstream import cap_retries, is_transient_upstream
+
 logger = logging.getLogger(__name__)
+
+# Resolved once at import; tests monkeypatch module attributes directly.
+_YAHOO_TIMEOUT = float(limits.YAHOO_TIMEOUT_SECONDS)
+_YAHOO_RETRIES = cap_retries(limits.YAHOO_MAX_RETRIES)
+
+
+def _timeout_seconds() -> float:
+    return float(_YAHOO_TIMEOUT)
+
+
+def _max_retries() -> int:
+    return cap_retries(_YAHOO_RETRIES)
 
 
 class YFinanceService:
     def __init__(self):
         self.cache = {}
+
+    def _history_with_retry(self, symbol: str, start_date: date, end_date: date,
+                            interval: str = "1d"):
+        """Single bounded Yahoo fetch: explicit timeout + at most ONE retry.
+
+        Retry happens ONLY for transient network failures. Validation
+        problems, empty responses, rate-limit signals, and DB errors are
+        never retried. After retry exhaustion the caller sees the same
+        bounded failure (empty result) as before — no behavior change
+        downstream.
+        """
+        ticker = yf.Ticker(symbol)
+        last_transient = None
+        attempts = 1 + _max_retries()
+        for attempt in range(attempts):
+            try:
+                return ticker.history(
+                    start=start_date,
+                    end=end_date + pd.Timedelta(days=1),
+                    interval=interval,
+                    auto_adjust=False,
+                    timeout=_timeout_seconds(),
+                )
+            except Exception as e:
+                if is_transient_upstream(e) and attempt + 1 < attempts:
+                    last_transient = e
+                    logger.warning(
+                        "yahoo_transient symbol=%s attempt=%s/%s error=%s",
+                        symbol, attempt + 1, attempts, type(e).__name__,
+                    )
+                    continue
+                raise
+        # Unreachable: loop either returns or raises. Kept for clarity.
+        raise last_transient  # pragma: no cover
 
     def fetch_price_history(
         self,
@@ -20,13 +69,7 @@ class YFinanceService:
         interval: str = "1d"
     ) -> List[Dict[str, Any]]:
         try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(
-                start=start_date,
-                end=end_date + pd.Timedelta(days=1),
-                interval=interval,
-                auto_adjust=False
-            )
+            hist = self._history_with_retry(symbol, start_date, end_date, interval)
 
             if hist.empty:
                 logger.warning(f"No data returned for {symbol} from {start_date} to {end_date}")
@@ -50,7 +93,7 @@ class YFinanceService:
             return records
 
         except Exception as e:
-            logger.error(f"Error fetching data for {symbol}: {str(e)}")
+            logger.error(f"Error fetching data for {symbol}: {type(e).__name__}")
             return []
 
     def fetch_multiple_symbols(
@@ -68,6 +111,8 @@ class YFinanceService:
         return results
 
     def get_current_price(self, symbol: str) -> Optional[Decimal]:
+        """NOTE: dead code path (no route calls it). Left unhardened
+        intentionally; the ingestion path above is the S2-hardened one."""
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
@@ -76,7 +121,7 @@ class YFinanceService:
                 return Decimal(str(round(price, 4)))
             return None
         except Exception as e:
-            logger.error(f"Error getting current price for {symbol}: {str(e)}")
+            logger.error(f"Error getting current price for {symbol}: {type(e).__name__}")
             return None
 
     def get_latest_price(self, symbol: str, as_of: date = None) -> Optional[Decimal]:
