@@ -320,8 +320,11 @@ def get_portfolio_value(
     db: Session = Depends(get_db)
 ):
     """Get portfolio value - requires view access."""
-    enforce_rate_limit(AUTH_STANDARD, user_key(user.id, AUTH_STANDARD))
+    # S4: authorization precedes rate limiting (matches all path-based
+    # endpoints). A stranger denied here must see 403 without consuming
+    # any rate-limit budget or revealing resource state via 429s.
     portfolio = _get_viewable_portfolio(request.portfolio_id, user, db)
+    enforce_rate_limit(AUTH_STANDARD, user_key(user.id, AUTH_STANDARD))
     as_of = request.as_of_date or date.today()
     holdings = db.query(Holding).filter(Holding.portfolio_id == portfolio.id).all()
 
@@ -385,8 +388,9 @@ def get_risk_metrics(
     db: Session = Depends(get_db)
 ):
     """Get risk metrics - requires view access."""
-    enforce_rate_limit(AUTH_STANDARD, user_key(user.id, AUTH_STANDARD))
+    # S4: authorization precedes rate limiting (see portfolio-value).
     portfolio = _get_viewable_portfolio(request.portfolio_id, user, db)
+    enforce_rate_limit(AUTH_STANDARD, user_key(user.id, AUTH_STANDARD))
     logger.info(f"Calculating risk metrics for portfolio {portfolio.id}, lookback={request.lookback_days}, confidence={request.confidence_level}")
     
     calculator = get_risk_calculator(db)
